@@ -55,7 +55,7 @@ char * activerecord_sql_quote_name( char * val )
 	if( val[0] != '`' || val[val_len-1] != '`' )
 	{
 		quoted = emalloc( val_len+2 );
-		quoted[0] = '"';
+		quoted[0] = '`';
 		strcpy( quoted+1, val );
 		quoted[val_len+1] = '`';
 		return quoted;
