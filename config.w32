@@ -1,0 +1,5 @@
+ARG_ENABLE("activerecord", "enable activerecord support", "no");
+if (PHP_ACTIVERECORD != "no") {
+	EXTENSION("activerecord", "activerecord.c activerecord_sql.c activerecord_utils.c activerecord_config.c");
+}
+
