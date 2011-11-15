@@ -8,9 +8,9 @@
 #include "php_activerecord.h"
 
 /*
- * Configuration details are stored in a request-global struct, instead of as
- * 	singleton properties. This is done to save the necessary method-calls when
- * 	from the ActiveRecord libraries.
+ * The ActiveRecord\Config class, along with its properties and methods, is defined
+ * 	here. Though the properties themselves reside in the userland class, they
+ *	can be quickly accessed using internal methods.
  *
  */
 const zend_function_entry activerecord_config_methods[] = {
