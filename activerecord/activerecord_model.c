@@ -350,6 +350,74 @@ zend_bool activerecord_model_isset( zval * model, char * name, int name_len )
 		zend_hash_find(Z_ARRVAL_P(zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC)), name, name_len, NULL) == SUCCESS; 
 }
 
+const char * activerecord_valid_options[11] = {
+	"conditions", "limit", "offset", "order", "select", "joins", "include", "readonly", "group", "from", "having"
+};
+zend_bool activerecord_is_options_hash( zval * arr )
+{
+	HashPosition pos;
+	char * key;
+	int i, key_len, res;
+
+	if( !activerecord_is_hash(arr) )
+		return 0;
+
+	for(
+		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(arr), &pos);
+		HASH_KEY_NON_EXISTANT != (res = zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &key, &key_len, &j, 0, &pos));
+		zend_hash_move_forward_ex(Z_ARRVAL_PP(arr), &pos)
+	)
+	{
+		if( res != HASH_KEY_IS_STRING )
+			/* throw exception */;
+
+		found = false;
+		for( i = 0; i < 11; i++ )
+		{
+			if( !strncmp(activerecord_valid_options[i], key, key_len) )
+				found = true;
+		}
+		if( !found )
+			return 0; /* parametrized throw exception, originally */
+	}
+
+	return 1;
+}
+
+zval * activerecord_extract_validate_options( zval * arr )
+{
+	zval * retval, ** last;
+	int key_len, j;
+	char * key;
+
+	MAKE_STD_ZVAL( retval );
+	array_init( retval );
+
+	if( Z_TYPE_P(arr) == IS_ARRAY && zend_hash_num_elements( Z_ARRVAL_P(arr) ) > 0 )
+	{
+		zend_hash_internal_pointer_end(Z_ARRVAL_P(arr));
+		zend_hash_get_current_data(Z_ARRVAL_P(arr), (void **)&last);
+
+		if( activerecord_is_options_hash(last) )
+		{
+			retval = last;
+			zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &key, &key_len, &j, 0, NULL);
+			zend_hash_del_key_or_index(Z_ARRVAL_P(arr), key, key_len, j, (key) ? HASH_DEL_KEY : HASH_DEL_INDEX);
+			if( !key_len && j >= Z_ARRVAL_P(arr)->nNextFreeElement - 1 ) 
+				Z_ARRVAL_P(arr)->nNextFreeElement = Z_ARRVAL_P(arr)->nNextFreeElement - 1;
+			zend_hash_internal_pointer_reset(Z_ARRVAL_P(arr));
+		}
+		else
+		{
+			if( !activerecord_is_hash(last) )
+				/* throw exception */;
+			zend_hash_add( Z_ARRVAL_P(retval), "conditions", 10, last, sizeof(zval*), NULL );
+		}
+	}
+
+	return retval;
+}
+
 PHP_METHOD(ActiveRecordModel, __construct)
 {
 	zval * attrs;
@@ -811,3 +879,7 @@ PHP_METHOD(ActiveRecordModel, reset_dirty)
 	zend_update_property( activerecord_model_ce, this_ptr, "__dirty", 7, null_zval TSRMLS_CC );
 }
 
+PHP_METHOD(ActiveRecordModel, __callStatic)
+{
+	
+}

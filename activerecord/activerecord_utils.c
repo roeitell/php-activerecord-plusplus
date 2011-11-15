@@ -25,6 +25,21 @@ const zend_function_entry activerecord_utils_methods[] = {
 	PHP_FE_END
 };
 
+zend_bool activerecord_is_hash( zval * hash )
+{
+	char * key;
+	int key_len, j;
+
+	if( Z_TYPE_P(hash) != IS_ARRAY )
+		return 0;
+
+	zend_hash_internal_pointer_reset( hash );
+	if( zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &key, &key_len, &j, 0, NULL) != HASH_KEY_IS_STRING )
+		return 0;
+
+	return 1;
+}
+
 PHP_METHOD(ActiveRecordUtils, is_blank)
 {
 	zval * pVal;
