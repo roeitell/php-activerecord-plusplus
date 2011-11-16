@@ -264,3 +264,84 @@ void activerecord_sql_create_where( activerecord_sql * sql, char ** keys, char *
 {
 	// output: "`moshe`=? AND `haim` IN(?,?,?,?)"
 }
+
+zval * activerecord_create_conditions_from_underscored_string( char * str, int str_len, zval * values, zval * map )
+{
+	int i, valcount, strsize, curstrsize;
+	char * conditions, * tmp, * attribute;
+	zend_bool and_condition, use_map;
+	zval ** alias, ** value, * retval, * condsval;
+
+	if( !name_len || Z_TYPE_P(values) != IS_ARRAY )
+		return NULL;
+
+	MAKE_STD_ZVAL( retval );
+	array_init( retval );
+	add_index_string( retval, 0, "", 1);
+	
+	use_map = ( map != NULL && Z_TYPE_P(map) == IS_ARRAY );
+	valcount = zend_hash_num_elements(Z_ARRVAL_P(values));
+	conditions = (char*)emalloc( strsize = valcount*20 );
+
+	for( int i = 0; strstr( str, "_and_" ) || strstr( str, "_or_" ); i++ )
+	{
+		if( tmp = strstr(str,"_and_") )
+			and_condition = 1;
+		else
+		{
+			tmp = strstr(str,"_or_");
+			and_condition = 0;
+		}
+		attribute = (char*)emalloc( str - tmp );
+		strncpy( attribute, str, str - tmp );
+		str = tmp + (and_condition? 5 : 4);
+		if( i > 0 )
+		{
+			if( zend_hash_find( Z_ARRVAL_P(map), attribute, sizeof(attribute), (void**)&alias ) == SUCCESS )
+				attribute = Z_STRVAL_PP(alias);
+
+			if( curstrsize + 14 + strlen(attribute) > strsize )
+			{
+				tmp = (char*)emalloc( strsize*2 );
+				strncpy( tmp, conditions, curstrsize );
+				efree( conditions );
+				conditions = tmp;
+				strsize *= 2;
+			}
+
+			strsize += (and_condition? 5 : 4) + strlen(attribute);
+			strcat( conditions, and_condition? " AND " : " OR " );
+			strcat( conditions, activerecord_sql_quote_name(attribute) );
+			efree( attribute );
+
+			if( i < valcount )
+			{
+				zend_hash_index_find( Z_ARRVAL_P(map), i, (void**)&value );
+				if( Z_TYPE_PP(value) != IS_NULL )
+				{
+					strcat( conditions, Z_TYPE_PP(value) == IS_ARRAY? " IN(?)" : "=?";
+					curstrsize += Z_TYPE_PP(value) == IS_ARRAY? 6 : 2;
+					add_next_index_zval( retval, *value );
+				}
+				else
+				{
+					strcat( conditions, " IS NULL " );
+					curstrsize += 9;
+				}
+			}
+			else
+			{
+				strcat( conditions, " IS NULL" );
+				curstrsize += 9;
+			}
+		}
+		
+	}
+
+	MAKE_STD_ZVAL( condsval );
+	ZVAL_STRING( condsval, conditions, 1 );
+	zend_hash_index_update( Z_ARRVAL_P(retval), 0, &condsval, sizeof(zval *), NULL );
+	efree( conditions );
+	
+	return retval;
+}

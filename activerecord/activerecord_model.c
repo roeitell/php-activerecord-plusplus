@@ -881,5 +881,57 @@ PHP_METHOD(ActiveRecordModel, reset_dirty)
 
 PHP_METHOD(ActiveRecordModel, __callStatic)
 {
+	zval * args;
+	char * method_name, * new_method_name, * attributes;
+	int method_name_len;
+	zend_bool create = 0;
+
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &method_name, &method_name_len, &args) == FAILURE )
+		return;
 	
+	if( !strncmp( method_name, "find_or_create_by", 17 ) )
+	{
+		create = 1;
+		method_name_len -= 17;
+		
+		new_method_name = (char*)emalloc( method_name_len );
+		strncpy( new_method_name, method_name+17, method_name_len );
+
+		efree( method_name );
+		method_name = new_method_name;
+
+		if( strstr( method_name, "_or" ) != NULL )
+			/* throw exception */;
+	}
+	
+	if( strstr( method_name, "find_by" ) == method_name )
+	{
+		attributes = (char*)emalloc( method_name_len - 8 );
+		strncpy( method_name+8, method_name_len-8 );
+		/*
+			$options['conditions'] = SQLBuilder::create_conditions_from_underscored_string(static::table()->conn,$attributes,$args,static::$alias_attribute);
+
+			if (!($ret = static::find('first',$options)) && $create)
+				return static::create(SQLBuilder::create_hash_from_underscored_string($attributes,$args,static::$alias_attribute));
+
+			return $ret;
+		*/
+	}
+	else if( strstr( method_name, "find_all_by" ) == method_name )
+	{
+		/*
+			$options['conditions'] = SQLBuilder::create_conditions_from_underscored_string(static::table()->conn,substr($method,12),$args,static::$alias_attribute);
+			return static::find('all',$options);
+		*/
+	}
+	else if( strstr( method_name, "count_by" ) == method_name )
+	{
+		/*
+					$options['conditions'] = SQLBuilder::create_conditions_from_underscored_string(static::table()->conn,substr($method,9),$args,static::$alias_attribute);
+			return static::count($options);
+		*/
+	}
+
+	if( !return_value )
+		/* throw exception */;
 }
