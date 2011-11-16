@@ -881,7 +881,7 @@ PHP_METHOD(ActiveRecordModel, reset_dirty)
 
 PHP_METHOD(ActiveRecordModel, __callStatic)
 {
-	zval * args;
+	zval * args, * options, * ret, * tmp;
 	char * method_name, * new_method_name, * attributes;
 	int method_name_len;
 	zend_bool create = 0;
@@ -889,6 +889,7 @@ PHP_METHOD(ActiveRecordModel, __callStatic)
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &method_name, &method_name_len, &args) == FAILURE )
 		return;
 	
+	options = activerecord_extract_validate_options( args );
 	if( !strncmp( method_name, "find_or_create_by", 17 ) )
 	{
 		create = 1;
@@ -908,28 +909,60 @@ PHP_METHOD(ActiveRecordModel, __callStatic)
 	{
 		attributes = (char*)emalloc( method_name_len - 8 );
 		strncpy( method_name+8, method_name_len-8 );
-		/*
-			$options['conditions'] = SQLBuilder::create_conditions_from_underscored_string(static::table()->conn,$attributes,$args,static::$alias_attribute);
-
-			if (!($ret = static::find('first',$options)) && $create)
-				return static::create(SQLBuilder::create_hash_from_underscored_string($attributes,$args,static::$alias_attribute));
-
-			return $ret;
-		*/
+		add_assoc_zval( 
+			options, "conditions", 
+			activerecord_create_conditions_from_underscored_string( 
+				attributes, method_name_len-8, args, 
+				zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC)
+			)
+		);
+		
+		MAKE_STD_ZVAL( tmp );
+		ZVAL_STRING( tmp, "first", 1 );
+		zend_call_method_with_2_params( NULL, activerecord_model_ce, NULL, "find", ret, tmp, options );
+		if( Z_TYPE_P(ret) == IS_NULL )
+		{
+			ZVAL_STRING( 
+				tmp, 
+				activerecord_create_hash_from_underscored_string( 
+					attributes, method_name_len - 8, args, 
+					zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC) 
+				),
+				1 
+			);
+			zend_call_method_with_1_params( NULL, activerecord_model_ce, NULL, "create", ret, tmp );
+		}
+		RETURN_ZVAL( ret, 1, 1 );
 	}
 	else if( strstr( method_name, "find_all_by" ) == method_name )
 	{
-		/*
-			$options['conditions'] = SQLBuilder::create_conditions_from_underscored_string(static::table()->conn,substr($method,12),$args,static::$alias_attribute);
-			return static::find('all',$options);
-		*/
+		attributes = (char*)emalloc( method_name_len - 12 );
+		strncpy( method_name+12, method_name_len-12 );
+		add_assoc_zval( 
+			options, "conditions", 
+			activerecord_create_conditions_from_underscored_string( 
+				attributes, method_name_len-12, args, 
+				zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC)
+			)
+		);
+		MAKE_STD_ZVAL( tmp );
+		ZVAL_STRING( tmp, "all", 1 );
+		zend_call_method_with_2_params( NULL, activerecord_model_ce, NULL, "find", ret, tmp, options );
+		RETURN_ZVAL( ret, 1, 1 );
 	}
 	else if( strstr( method_name, "count_by" ) == method_name )
 	{
-		/*
-					$options['conditions'] = SQLBuilder::create_conditions_from_underscored_string(static::table()->conn,substr($method,9),$args,static::$alias_attribute);
-			return static::count($options);
-		*/
+		attributes = (char*)emalloc( method_name_len - 9 );
+		strncpy( method_name+9, method_name_len-9 );
+		add_assoc_zval( 
+			options, "conditions", 
+			activerecord_create_conditions_from_underscored_string( 
+				attributes, method_name_len-9, args, 
+				zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC)
+			)
+		);
+		zend_call_method_with_1_params( NULL, activerecord_model_ce, NULL, "count", ret, options );
+		RETURN_ZVAL( ret, 1, 1 );
 	}
 
 	if( !return_value )

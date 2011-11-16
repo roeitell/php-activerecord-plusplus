@@ -269,7 +269,7 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 {
 	int i, valcount, strsize, curstrsize;
 	char * conditions, * tmp, * attribute;
-	zend_bool and_condition, use_map;
+	zend_bool and_condition, use_map, unfinished = 1;
 	zval ** alias, ** value, * retval, * condsval;
 
 	if( !name_len || Z_TYPE_P(values) != IS_ARRAY )
@@ -283,7 +283,7 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 	valcount = zend_hash_num_elements(Z_ARRVAL_P(values));
 	conditions = (char*)emalloc( strsize = valcount*20 );
 
-	for( int i = 0; strstr( str, "_and_" ) || strstr( str, "_or_" ); i++ )
+	for( i = 0; strstr( str, "_and_" ) || strstr( str, "_or_" ) || unfinished; i++ )
 	{
 		if( tmp = strstr(str,"_and_") )
 			and_condition = 1;
@@ -292,12 +292,20 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 			tmp = strstr(str,"_or_");
 			and_condition = 0;
 		}
-		attribute = (char*)emalloc( str - tmp );
-		strncpy( attribute, str, str - tmp );
-		str = tmp + (and_condition? 5 : 4);
+		if( tmp )
+		{
+			attribute = (char*)emalloc( tmp - str );
+			strncpy( attribute, str, tmp - str );
+			str = tmp + (and_condition? 5 : 4);
+		}
+		else
+		{
+			unfinished = 0;
+			attribute = str;
+		}
 		if( i > 0 )
 		{
-			if( zend_hash_find( Z_ARRVAL_P(map), attribute, sizeof(attribute), (void**)&alias ) == SUCCESS )
+			if( use_map && zend_hash_find( Z_ARRVAL_P(map), attribute, sizeof(attribute), (void**)&alias ) == SUCCESS )
 				attribute = Z_STRVAL_PP(alias);
 
 			if( curstrsize + 14 + strlen(attribute) > strsize )
@@ -316,7 +324,7 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 
 			if( i < valcount )
 			{
-				zend_hash_index_find( Z_ARRVAL_P(map), i, (void**)&value );
+				zend_hash_index_find( Z_ARRVAL_P(values), i, (void**)&value );
 				if( Z_TYPE_PP(value) != IS_NULL )
 				{
 					strcat( conditions, Z_TYPE_PP(value) == IS_ARRAY? " IN(?)" : "=?";
@@ -344,4 +352,45 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 	efree( conditions );
 	
 	return retval;
+}
+
+zval * activerecord_create_hash_from_underscored_string( char * str, int str_len, zval * values, zval * map )
+{
+	zval * hash;
+	int i;
+	char * attribute, * tmp, ** alias, ** value;
+	zend_bool use_map, unfinished = 1;
+
+	MAKE_STD_ZVAL( hash );
+	array_init( hash );
+	use_map = ( map != NULL && Z_TYPE_P(map) == IS_ARRAY );
+
+	for( i = 0; strstr( str, "_and_" ) || strstr( str, "_or_" ) || unfinished; i++ )
+	{
+		if( tmp = strstr(str,"_and_") )
+			and_condition = 1;
+		else
+		{
+			tmp = strstr(str,"_or_");
+			and_condition = 0;
+		}
+		if( tmp )
+		{
+			attribute = (char*)emalloc( tmp - str );
+			strncpy( attribute, str, tmp - str );
+			str = tmp + (and_condition? 5 : 4);
+		}
+		else
+		{
+			unfinished = 0;
+			attribute = str;
+		}
+			
+		if( use_map && zend_hash_find( Z_ARRVAL_P(map), attribute, sizeof(attribute), (void**)&alias ) == SUCCESS )
+			attribute = Z_STRVAL_PP(alias);
+		zend_hash_index_find( Z_ARRVAL_P(values), i, (void**)&value );
+		add_assoc_zval( hash, attribute, *value );
+	}
+
+	return hash;
 }
