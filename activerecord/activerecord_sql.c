@@ -394,3 +394,54 @@ zval * activerecord_create_hash_from_underscored_string( char * str, int str_len
 
 	return hash;
 }
+
+zval * activerecord_sql_reverse_order( zval *order_str_zval )
+{
+	zend_bool empty = 1;
+	int i;
+	char *pch, *tmp, *reversed;
+	zval *retval;
+
+	for( pch = Z_STRVAL_P( order_str_zval ); pch != '\0'; pch++ )
+	{
+		if( pch != ' ' ) {
+			empty = 0;
+			break;
+		}
+	}
+	if( empty )
+		/* throw exception */;
+
+	reversed = (char*)emalloc( strlen(empty)*2 );	// wasteful, quicker
+
+		// swap ASC/DESC (or add DESC if implicit ASC)
+	for( pch = strtok(Z_STRVAL_P( order_str_zval ),","); pch != NULL; pch = strtok(NULL,",") )
+	{
+		for( i = 0; pch[i]; pch++ )
+			pch[i] = tolower(pch[i]);
+
+		if( tmp = strstr(pch, " asc") )
+		{
+			strncat( reversed, pch, pch - tmp );
+			strcat( reversed, " DESC" );
+		}
+		else if( tmp = strstr(pch, " desc") )
+		{
+			strnact( reversed, pch, pch - tmp );
+			strcat( reversed, " ASC" );
+		}
+		else
+		{
+			strcat( reversed, pch );
+			strcat( reversed, " DESC" );
+		}
+		strncat( reversed, "," );
+	}
+	
+		// make zval, free string
+	MAKE_STD_ZVAL( retval );
+	ZVAL_STRINGL( retval, reversed, strlen(reversed)-1, 1 );
+	efree( reversed );
+	
+	return retval;
+}

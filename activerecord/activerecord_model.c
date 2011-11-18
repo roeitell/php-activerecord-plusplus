@@ -92,7 +92,7 @@ zval * activerecord_model_find( zval * model, zval * args )
 {
 	int arg_count;
 	void **p;
-	zval *options, **first;
+	zval *options, **first, **order;
 	zend_bool single = 1, first_arg_flag = 1, fetch_one = 0;
 
 		// interpret arguments as options
@@ -110,12 +110,14 @@ zval * activerecord_model_find( zval * model, zval * args )
 		else if( !strcmp(Z_STRVAL_P(first), "last") )
 		{
 			fetch_one = 1;
-			/*
-			if (!array_key_exists('order',$options))
-				$options['order'] = join(' DESC, ',static::table()->pk) . ' DESC';
+			if( zend_hash_find( Z_ARRVAL_P(options), "order", 5, (void**)&order ) == FAILURE )
+			{
+				/*$options['order'] = join(' DESC, ',static::table()->pk) . ' DESC';*/
+			}
 			else
-				$options['order'] = SQLBuilder::reverse_order($options['order']);
-			*/
+			{
+				zend_hash_add( Z_ARRVAL_P(options), "order", 5, activerecord_sql_reverse_order( order ), sizeof(zval*), NULL );
+			}
 		}
 		else if( !strcmp(Z_STRVAL_P(first), "first") )
 		{
