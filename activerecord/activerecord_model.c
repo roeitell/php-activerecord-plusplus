@@ -968,3 +968,97 @@ PHP_METHOD(ActiveRecordModel, __callStatic)
 	if( !return_value )
 		/* throw exception */;
 }
+
+PHP_METHOD(ActiveRecordModel, __call)
+{
+	zval * args, ** arg, * table, * association;
+	char * method_name;
+	int method_name_len;
+	zend_bool build;
+
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "sz", &method_name, &method_name_len, &args) == FAILURE )
+		return;
+
+	if( strstr(method_name, "build_") )
+	{
+		method_name += 6;
+		method_name_len -= 6;
+		build = 1;
+	}
+	else if( strstr(method_name, "create_") )
+	{
+		method_name += 7;
+		method_name_len -= 7;
+		build = 0;
+	}
+	else
+	{
+		/* throw exception */
+	}
+	
+	if( Z_TYPE_P(args) == IS_ARRAY && zend_hash_num_elements(Z_ARRVAL_P(args)) > 0 )
+		zend_hash_index_find( Z_ARRVAL_P(args), 0, (void**)&arg );
+	else
+		MAKE_STD_ZVAL( *arg );
+
+	association = activerecord_table_get_relationship(
+		activerecord_table_load( EG(scope)->name, EG(scope)->name_length ),
+		method_name, method_name_len
+	);
+	if( Z_TYPE_P(association) == IS_OBJECT )
+	{
+		activerecord_model_magic_get( this_ptr, method_name, method_name_len );
+		/*
+		RETURN_ZVAL( build?
+			activerecord_association_build( association this_ptr, *arg ) :
+			activerecord_association_create( association, this_ptr, *arg )
+		);
+		*/
+	}
+}
+
+PHP_METHOD(ActiveRecordModel, all)
+{
+	void **p;
+	zval *args, *allstr, *retval_ptr = NULL, *callable;
+	int arg_count, i;
+	zend_execute_data *ex = EG(current_execute_data)->prev_execute_data;
+	zend_fcall_info fci;
+	zend_fcall_info_cache fci_cache;
+
+		// prepare
+	p = ex->function_state.arguments;
+	arg_count = (int)(zend_uintptr_t) *p;
+
+		// init callable args, start with "all"
+	MAKE_STD_ZVAL( args );
+	array_init_size( args, arg_count+1 );
+	MAKE_STD_ZVAL( allstr );
+	ZVAL_STRING( allstr, "all", 1 );
+	zend_hash_next_index_insert( Z_ARRVAL_P(args), &allstr, sizeof(zval*), NULL);
+	
+		// push arguments into callable args
+	for (i=0; i<arg_count; i++) {
+		zval *element;
+		ALLOC_ZVAL(element);
+		*element = **((zval **) (p-(arg_count-i)));
+		zval_copy_ctor(element);
+		INIT_PZVAL(element);
+		zend_hash_next_index_insert( args->value.ht, &element, sizeof(zval *), NULL);
+	}
+
+		// init callable entry
+	MAKE_STD_ZVAL( callable );
+	ZVAL_STRING( callable, "static::find", 1 );
+	zend_fcall_info_init( callable, &fci, &fci_cache TSRMLS_CC );
+	zend_fcall_info_args( &fci, args TSRMLS_CC );
+	fci.retval_ptr_ptr = &retval_ptr;
+
+		// call method
+	if (zend_call_function(&fci, &fci_cache TSRMLS_CC) == SUCCESS && fci.retval_ptr_ptr && *fci.retval_ptr_ptr) {
+		COPY_PZVAL_TO_ZVAL(*return_value, *fci.retval_ptr_ptr);
+	}
+
+		// cleanup
+	zend_fcall_info_args_clear(&fci, 1);
+}
