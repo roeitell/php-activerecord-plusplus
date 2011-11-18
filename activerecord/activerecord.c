@@ -119,7 +119,10 @@ PHP_MINFO_FUNCTION(activerecord)
 	//DISPLAY_INI_ENTRIES();
 }
 
-
+/**
+ * Access private property (mangle && fetch)
+ *
+ */
 zval * activerecord_private_property( zval * classObj, const char * propName )
 {
 	char *privPropName;
@@ -143,4 +146,51 @@ zval * activerecord_private_property( zval * classObj, const char * propName )
 
 		// returns the proeprty's string value
 	return *retVal;
+}
+
+/**
+ * Translate userland arguments into a single zval array.
+ *	Similar to func_get_args().
+ *
+ */
+void activerecord_pack_args( *args )
+{
+	zend_execute_data *ex = EG(current_execute_data)->prev_execute_data;
+	void **p = ex->function_state.arguments;
+	int arg_count = (int)(zend_uintptr_t) *p, i;
+
+	for (i=0; i<arg_count; i++) {
+		zval *element;
+		ALLOC_ZVAL(element);
+		*element = **((zval **) (p-(arg_count-i)));
+		zval_copy_ctor(element);
+		INIT_PZVAL(element);
+		zend_hash_next_index_insert( args->value.ht, &element, sizeof(zval *), NULL);
+	}
+}
+
+/**
+ * Call a method by a callable string, passing a zval array containing all the packed arguments.
+ *	Similar to call_user_func_array() with a string callable.
+ */
+zval * activerecord_call_function( char *function_name, zval *args )
+{
+	zval *callable, *retval, *retval_copy;
+	zend_fcall_info fci;
+	zend_fcall_info_cache fci_cache;
+
+	MAKE_STD_ZVAL( callable );
+	ZVAL_STRING( callable, function_name, 0 );
+	
+	zend_fcall_info_init( callable, &fci, &fci_cache TSRMLS_CC );
+	zend_fcall_info_args( &fci, args TSRMLS_CC );
+	fci.retval_ptr_ptr = &retval;
+
+	if (zend_call_function(&fci, &fci_cache TSRMLS_CC) == SUCCESS && fci.retval_ptr_ptr && *fci.retval_ptr_ptr) {
+		COPY_PZVAL_TO_ZVAL(*retval_copy, *fci.retval_ptr_ptr);
+	}
+	
+	zend_fcall_info_args_clear(&fci, 1);
+
+	return retval_copy;
 }
