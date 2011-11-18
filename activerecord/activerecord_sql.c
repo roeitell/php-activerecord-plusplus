@@ -423,17 +423,17 @@ zval * activerecord_sql_reverse_order( zval *order_str_zval )
 		if( tmp = strstr(pch, " asc") )
 		{
 			strncat( reversed, pch, pch - tmp );
-			strcat( reversed, " DESC" );
+			strncat( reversed, " DESC", 5 );
 		}
 		else if( tmp = strstr(pch, " desc") )
 		{
-			strnact( reversed, pch, pch - tmp );
-			strcat( reversed, " ASC" );
+			strncat( reversed, pch, pch - tmp );
+			strncat( reversed, " ASC", 4 );
 		}
 		else
 		{
 			strcat( reversed, pch );
-			strcat( reversed, " DESC" );
+			strncat( reversed, " DESC", 5 );
 		}
 		strncat( reversed, "," );
 	}
