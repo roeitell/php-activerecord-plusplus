@@ -23,7 +23,7 @@ const zend_function_entry activerecord_model_methods[] = {
 const char * activerecord_valid_options[11] = {
 	"conditions", "limit", "offset", "order", "select", "joins", "include", "readonly", "group", "from", "having"
 };
-zend_bool activerecord_is_options_hash( zval * arr )
+zend_bool activerecord_is_options_hash( zval * arr, zend_bool throw_e )
 {
 	HashPosition pos;
 	char * key;
@@ -33,9 +33,9 @@ zend_bool activerecord_is_options_hash( zval * arr )
 		return 0;
 
 	for(
-		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_PP(arr), &pos);
+		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(arr), &pos);
 		HASH_KEY_NON_EXISTANT != (res = zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &key, &key_len, &j, 0, &pos));
-		zend_hash_move_forward_ex(Z_ARRVAL_PP(arr), &pos)
+		zend_hash_move_forward_ex(Z_ARRVAL_P(arr), &pos)
 	)
 	{
 		int i;
@@ -49,8 +49,8 @@ zend_bool activerecord_is_options_hash( zval * arr )
 			if( !strncmp(activerecord_valid_options[i], key, key_len) )
 				found = true;
 		}
-		if( !found )
-			return 0; /* parametrized throw exception, originally */
+		if( !found && throw_e)
+			/* throw exception */;
 	}
 
 	return 1;
@@ -99,7 +99,7 @@ zval * activerecord_extract_validate_options( zval * arr )
 		zend_hash_internal_pointer_end(Z_ARRVAL_P(arr));
 		zend_hash_get_current_data(Z_ARRVAL_P(arr), (void **)&last);
 
-		if( activerecord_is_options_hash(last) )
+		if( activerecord_is_options_hash(last, 0) )
 		{
 			retval = last;
 			zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &key, &key_len, &j, 0, NULL);
@@ -389,13 +389,15 @@ zval * activerecord_model_values_for( zval * model, zval * attribute_names )
 	return values_for;
 }
 
-zval * activerecord_model_values_for_pk()
+zval * activerecord_model_values_for_pk( zval *model )
 {
-	return activerecord_model_values_for(zend_hash_find(
-		activerecord_table_ce, 
-		activerecord_table_load( EG(scope)->name, EG(scope)->name_length ), 
-		"pk", 2, 0 TSRMLS_CC 
-	));
+	return activerecord_model_values_for( model, 
+		zend_read_property(
+			activerecord_table_ce, 
+			activerecord_table_load( EG(scope)->name, EG(scope)->name_length ), 
+			"pk", 2, 0 TSRMLS_CC 
+		)
+	);
 }
 
 zend_bool activerecord_model_isset( zval * model, char * name, int name_len )

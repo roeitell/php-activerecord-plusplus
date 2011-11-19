@@ -264,6 +264,45 @@ void activerecord_sql_parameter( activerecord_sql * sql, char * k, char * v )
 	sql->data_values[sql->data_len-1] = v;
 }
 
+/* complete -
+	should deal either with:
+			hash keys = keys, hash values = values
+			hash = array( keys, values )
+			hash = array( value )
+*/
+void activerecord_sql_create_where_zval( activerecord_sql *sql, zval *hash )
+{
+	int len, i = 0;
+	zval **value;
+	char **keys, **values;
+	HashPosition pos;
+
+	if( Z_TYPE_P(hash) != IS_ARRAY )
+		/* throw exception */;
+
+	len = zend_hash_num_elements( Z_ARRVAL_P(hash) );
+	keys = (char**)emalloc( sizeof(char*)*len );
+	values = (char**)emalloc( sizeof(char*)*len );
+
+	for( 
+		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(joins), &pos);
+		zend_hash_get_current_data_ex(Z_ARRVAL_P(joins), (void **)&value, &pos) == SUCCESS;
+		zend_hash_move_forward_ex(Z_ARRVAL_P(joins), &pos)
+	)
+	{
+		zval **key;
+		int key_len;
+
+		if( HASH_KEY_IS_STRING == zend_hash_get_current_key_ex(Z_ARRVAL_P(arr), &key, &key_len, &j, 0, &pos) )
+		{
+			keys[i] = key;
+			values[i] = Z_STRVAL_PP(value);
+		}
+	}
+
+	activerecord_sql_create_where( sql, keys, values, len );
+}
+
 void activerecord_sql_create_where( activerecord_sql * sql, char ** keys, char ** values, int len )
 {
 	// output: "`moshe`=? AND `haim` IN(?,?,?,?)"

@@ -33,6 +33,133 @@ zval * activerecord_table_load( char * name, int name_len )
 	return * table;
 }
 
+char * activerecord_table_create_joins( zval *table, zval *joins )
+{
+	char *ret = (char*)emalloc( 1 /* a lot */ );
+	HashPosition pos;
+	zval **value, 
+		 *relationships = zend_read_property(activerecord_table_ce, model, "relationships", 13, 0 TSRMLS_CC);
+
+	if( Z_TYPE_P(joins) != IS_ARRAY )
+		return Z_TYPE_P(joins) == IS_STRING? joins : "";
+
+	for( 
+		zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(joins), &pos);
+		zend_hash_get_current_data_ex(Z_ARRVAL_P(joins), (void **)&value, &pos) == SUCCESS;
+		zend_hash_move_forward_ex(Z_ARRVAL_P(joins), &pos)
+	)
+	{
+		if( Z_TYPE_PP(value) != IS_STRING )
+			continue;
+		if( !strstr( Z_STRVAL_PP(value),"JOIN ") )
+		{
+			if( zend_hash_find( Z_ARRVAL_P(relationships), Z_STRVAL_PP(value), Z_STRLEN_PP(value), NULL ) == SUCCESS )
+			{
+				/*
+									$rel = $this->get_relationship($value);
+
+					// if there is more than 1 join for a given table we need to alias the table names
+					if (array_key_exists($rel->class_name, $existing_tables))
+					{
+						$alias = $value;
+						$existing_tables[$rel->class_name]++;
+					}
+					else
+					{
+						$existing_tables[$rel->class_name] = true;
+						$alias = null;
+					}
+
+					$ret .= $rel->construct_inner_join_sql($this, false, $alias);
+				*/
+			}
+			else
+				/* throw exception */;
+		}
+		else
+		{
+			strcat( ret, Z_STRVAL_PP(value) );
+		}
+	}
+
+	return ret;
+}
+
+activerecord_sql options_to_sql( zval *table, zval *options )
+{
+	activerecord_sql *res = activerecord_sql_new();
+	zval **tmp;
+
+	if( Z_TYPE_P(options) != IS_ARRAY )
+		/* throw exception */;
+	
+	if( zend_hash_find( Z_ARRVAL_P(options), "from", 4, (void**)&tmp ) == SUCCESS )
+	{
+		res->table = *tmp;
+	}
+	else
+	{
+		/*res->table = activerecord_table_fully_qualified_name( table );*/
+	}
+	
+	if( zend_hash_find( Z_ARRVAL_P(options), "joins", 4, (void**)&tmp ) == SUCCESS )
+	{
+		res->joins = activerecord_table_create_joins( table, *tmp );
+
+		if( zend_hash_find( Z_ARRVAL_P(options), "select", 6, NULL ) == FAILURE )
+			/* zend_hash_add( Z_ARRVAL_P(options), "select", 6, activerecord_table_fully_qualified_name(table), sizeof(zval*), NULL ); */
+	}
+	
+	if( zend_hash_find( Z_ARRVAL_P(options), "select", 4, (void**)&tmp ) == SUCCESS )
+	{
+		res->select = *tmp;
+	}
+
+	if( zend_hash_find( Z_ARRVAL_P(options), "conditions", 10, (void**)&tmp ) == SUCCESS )
+	{
+		if( !activerecord_is_hash(*tmp) && Z_TYPE_PP(tmp) == IS_STRING )
+		{
+				zval *new_conditions;
+				MAKE_STD_ZVAL( new_conditions );
+				array_init_size( new_conditions, 1 );
+				zend_hash_next_index_insert( Z_ARRVAL_P(new_conditions), &tmp, sizeof(zval *), NULL );
+				zend_hash_add( Z_ARRVAL_P(options), "conditions", 10, new_conditions, sizeof(zval*), NULL );
+				tmp = new_conditions;
+		}
+		else
+		{
+			zval **mapped_names;
+			zend_hash_find( Z_ARRVAL_P(options), "mapped_names", 12, (void**)&mapped_names );
+			if( Z_TYPE_PP(mapped_names) == IS_ARRAY )
+				/*zend_hash_add( Z_ARRVAL_P(options), "conditions", 10, activerecord_map_names(tmp, mapped_names), sizeof(zval*), NULL );*/
+		}
+		activerecord_sql_create_where_zval( res, tmp ); /* see activerecord_sql_create_where_zval, many cases to consider */
+	}
+	
+	if( zend_hash_find( Z_ARRVAL_P(options), "order", 5, (void**)&tmp ) == SUCCESS )
+	{
+		res->order = *tmp;
+	}
+	if( zend_hash_find( Z_ARRVAL_P(options), "limit", 5, (void**)&tmp ) == SUCCESS )
+	{
+		res->limit = *tmp;
+	}
+	if( zend_hash_find( Z_ARRVAL_P(options), "offset", 6, (void**)&tmp ) == SUCCESS )
+	{
+		res->offset = *tmp;
+	}
+	if( zend_hash_find( Z_ARRVAL_P(options), "group", 5, (void**)&tmp ) == SUCCESS )
+	{
+		res->group = *tmp;
+	}
+	if( zend_hash_find( Z_ARRVAL_P(options), "having", 6, (void**)&tmp ) == SUCCESS )
+	{
+		res->having = *tmp;
+	}
+
+	return res;
+}
+
 PHP_METHOD(ActiveRecordTable, load)
 {
 	char * name;
@@ -107,6 +234,5 @@ PHP_METHOD(ActiveRecordTable, __construct)
 		//			$this->pk[] = $c->inflected_name;
 		//	}
 	}
-	
-	
 }
+
