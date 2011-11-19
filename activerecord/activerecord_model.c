@@ -1245,3 +1245,29 @@ PHP_METHOD(ActiveRecordModel, find)
 		return $single ? (!empty($list) ? $list[0] : null) : $list;
 	*/
 }
+
+PHP_METHOD(ActiveRecordModel, find_by_pk)
+{
+	zval *values, *options, *list,
+		 *table = activerecord_table_load( EG(called_scope)->name, EG(called_scope)->name_length );
+	int expected;
+	
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "zz", &values, &options) == FAILURE )
+		return;
+	
+	/*$list = static::table()->find($options);*/
+	expected = zend_hash_num_elements(Z_ARRVAL_P(values));
+	if( zend_hash_num_elements(Z_ARRVAL_P(list)) != expected )
+		/* throw exception */;
+	
+	if( expected != 1 )
+	{
+		RETURN_ZVAL( list, 1, 0 );
+	}
+	else
+	{
+		zval **first;
+		zend_hash_index_find( Z_ARRVAL_P(list), 0, (void**)&first );
+		RETURN_ZVAL( *first, 1, 0 );
+	}
+}
