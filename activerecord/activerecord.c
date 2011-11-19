@@ -153,12 +153,18 @@ zval * activerecord_private_property( zval * classObj, const char * propName )
  *	Similar to func_get_args().
  *
  */
-void activerecord_pack_args( *args )
+void activerecord_pack_args( zval *args, zend_bool init )
 {
 	zend_execute_data *ex = EG(current_execute_data)->prev_execute_data;
 	void **p = ex->function_state.arguments;
 	int arg_count = (int)(zend_uintptr_t) *p, i;
 
+	if( init )
+	{
+		MAKE_STD_ZVAL( args );
+		array_init_size( args, arg_count );
+	}
+	
 	for (i=0; i<arg_count; i++) {
 		zval *element;
 		ALLOC_ZVAL(element);

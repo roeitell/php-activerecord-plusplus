@@ -1151,7 +1151,7 @@ PHP_METHOD(ActiveRecordModel, all)
 	MAKE_STD_ZVAL( allstr );
 	ZVAL_STRING( allstr, "all", 1 );
 	zend_hash_next_index_insert( Z_ARRVAL_P(args), &allstr, sizeof(zval*), NULL);
-	activerecord_pack_args( args );
+	activerecord_pack_args( args, 0 );
 
 	RETURN_ZVAL( activerecord_call_function( "static::find", args ), 1 );
 }
@@ -1164,24 +1164,11 @@ PHP_METHOD(ActiveRecordModel, all)
 PHP_METHOD(ActiveRecordModel, find)
 {
 	zval *args;
-	zend_execute_data *ex = EG(current_execute_data)->prev_execute_data;
-
-		// fetch all arguments ( func_get_args() )
-	p = ex->function_state.arguments;
-	arg_count = (int)(zend_uintptr_t) *p;
-	if( arg_count <= 0 )
-		/* throw exception */;
-	MAKE_STD_ZVAL( args );
-	array_init_size( args, arg_count );
-	for (i=0; i<arg_count; i++) {
-		zval *element;
-		ALLOC_ZVAL(element);
-		*element = **((zval **) (p-(arg_count-i)));
-		zval_copy_ctor(element);
-		INIT_PZVAL(element);
-		zend_hash_next_index_insert( args->value.ht, &element, sizeof(zval *), NULL);
-	}
+	activerecord_pack_args( args, 1 );
 	
+	if( zend_hash_num_elements( Z_ARRVAL_P(args) ) == 0 )
+		/* throw exception */;
+
 	RETURN_ZVAL(
 		activerecord_model_find( this_ptr, args )
 	);
