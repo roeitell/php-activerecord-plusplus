@@ -39,26 +39,10 @@ zend_module_entry activerecord_module_entry = {
 ZEND_GET_MODULE(activerecord)
 #endif
 
-/* 
-PHP_INI_BEGIN()
-    STD_PHP_INI_ENTRY("activerecord.global_value",      "42", PHP_INI_ALL, OnUpdateLong, global_value, zend_activerecord_globals, activerecord_globals)
-    STD_PHP_INI_ENTRY("activerecord.global_string", "foobar", PHP_INI_ALL, OnUpdateString, global_string, zend_activerecord_globals, activerecord_globals)
-PHP_INI_END()
-*/
-
-/*
-static void php_activerecord_init_globals(zend_activerecord_globals *activerecord_globals)
-{
-}
-*/
-
 PHP_MINIT_FUNCTION(activerecord)
 {
 	zend_class_entry ce;
-	
-	//ZEND_INIT_MODULE_GLOBALS(activerecord, php_activerecord_init_globals, NULL);
-	//REGISTER_INI_ENTRIES();
-    
+	    
     INIT_CLASS_ENTRY(ce, "ActiveRecordUtils", activerecord_utils_methods);
     activerecord_utils_ce = zend_register_internal_class(&ce TSRMLS_CC);
 
@@ -97,7 +81,6 @@ PHP_MINIT_FUNCTION(activerecord)
 
 PHP_MSHUTDOWN_FUNCTION(activerecord)
 {
-	//UNREGISTER_INI_ENTRIES();
 	return SUCCESS;
 }
 
@@ -116,7 +99,6 @@ PHP_MINFO_FUNCTION(activerecord)
 	php_info_print_table_start();
 	php_info_print_table_header(2, "activerecord support", "enabled");
 	php_info_print_table_end();
-	//DISPLAY_INI_ENTRIES();
 }
 
 /**

@@ -87,7 +87,9 @@ char * activerecord_sql_build_update( activerecord_sql * sql )
 		strcat( query, param[i] );
 		strcat( query, i == sql->data_len - 1 ? "=? " : "=?, " );
 	}
-	
+
+	for( i = 0; i < sql->data_len; i++ )
+		efree( param[i] );
 	efree( param );
 
 	return query;
@@ -234,15 +236,18 @@ char * activerecord_sql_build_insert( activerecord_sql * sql )
 	
 		// close query
 	strcat( query, ")" );
+	for( i = 0; i < sql->data_len; i++ )
+		efree( param[i] );
+	efree( param );
 	return query;
 }
 
 void activerecord_sql_parameter( activerecord_sql * sql, char * k, char * v )
 {
-	char ** new_data_container;
 	sql->data_len++;
 	if( sql->data_len > sql->data_size )
 	{
+		char **new_data_container;
 		if( sql->data_size == 0 ); // TODO: Handle
 		new_data_container = emalloc( sql->data_size*2*sizeof(char*) );
 		memcpy( new_data_container, sql->data_keys, sql->data_size*sizeof(char*) );
@@ -323,7 +328,6 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 			strsize += (and_condition? 5 : 4) + strlen(attribute);
 			strcat( conditions, and_condition? " AND " : " OR " );
 			strcat( conditions, activerecord_sql_quote_name(attribute) );
-			efree( attribute );
 
 			if( i < valcount )
 			{
@@ -348,7 +352,7 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 				curstrsize += 9;
 			}
 		}
-		
+		efree( attribute );
 	}
 
 	MAKE_STD_ZVAL( condsval );

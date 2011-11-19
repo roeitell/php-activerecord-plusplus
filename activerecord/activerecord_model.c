@@ -9,9 +9,9 @@
 
 /*
  * Implementation of the ActiveRecord\Model class.
- *	Note: many methods which are cross-dependent, and usually would have been internalized
+ *	Note: many public methods which are cross-dependent, and could have been internalized
  *		for optimization, have been left here as-is. Users of ActiveRecord may and actually
- *		do override certain key methods here in some models, and their customizations should 
+ *		do override certain public methods in some models, and their customizations should 
  *		not be affected. (this mainly regards the ::find() method).
  *
  */
@@ -56,6 +56,33 @@ zend_bool activerecord_is_options_hash( zval * arr )
 	return 1;
 }
 
+zend_bool activerecord_model_array_search( zval * arr, char * value )
+{
+	zval  **entry;
+	HashPosition pos;
+	zend_bool res = 0;
+	
+	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(arr), &pos);
+	while( zend_hash_get_current_data_ex(Z_ARRVAL_P(arr), (void **)&entry, &pos) == SUCCESS ) 
+	{
+		if( strcmp(Z_STRVAL_PP(entry), value) == 0 )
+		{
+			res = 1;
+			break;
+		}
+		zend_hash_move_forward_ex(Z_ARRVAL_P(arr), &pos);
+	}
+
+	if( !res )
+	{
+		RETURN_FALSE;
+	}
+	else
+	{
+		RETURN_TRUE;
+	}
+}
+
 zval * activerecord_extract_validate_options( zval * arr )
 {
 	zval * retval;
@@ -92,132 +119,14 @@ zval * activerecord_extract_validate_options( zval * arr )
 	return retval;
 }
 
-zval * activerecord_model_find( zval * model, zval * args )
-{
-	int arg_count;
-	zval *options, **first;
-	zend_bool single = 1;
-
-		// interpret arguments as options
-	options = activerecord_extract_validate_options( args );
-	arg_count = zend_hash_num_elements( Z_ARRVAL_P(args) );
-
-		// allow first argument to be an all/last/first modifier, adapt options accordingly
-	zend_hash_index_find( args, 0, (void**)&first );
-	if( Z_TYPE_P(first) == IS_STRING )
-	{
-		zend_bool first_arg_flag  = 1, fetch_one = 0;
-		if( !strcmp(Z_STRVAL_P(first), "all") )
-		{
-			single = 0;
-		}
-		else if( !strcmp(Z_STRVAL_P(first), "last") )
-		{
-			zval **order;
-			fetch_one = 1;
-			if( zend_hash_find( Z_ARRVAL_P(options), "order", 5, (void**)&order ) == FAILURE )
-			{
-				/*$options['order'] = join(' DESC, ',static::table()->pk) . ' DESC';*/
-			}
-			else
-			{
-				zend_hash_add( Z_ARRVAL_P(options), "order", 5, activerecord_sql_reverse_order( order ), sizeof(zval*), NULL );
-			}
-		}
-		else if( !strcmp(Z_STRVAL_P(first), "first") )
-		{
-			fetch_one = 1;
-		}
-		else
-		{
-			first_arg_flag = 0;
-		}
-		if( fetch_one )
-		{
-			zval *limit, *offset;
-			MAKE_STD_ZVAL( limit );
-			MAKE_STD_ZVAL( offset );
-			ZVAL_LONG( limit, 1 );
-			ZVAL_LONG( offset, 0 );
-			zend_hash_add(
-				Z_ARRVAL_P(options), "limit", 5, limit, sizeof(zval*), NULL
-			);
-			zend_hash_add(
-				Z_ARRVAL_P(options), "offset", 6, offset, sizeof(zval*), NULL
-			);
-		}
-		
-			// if needed, shift the first options-array element
-		if( first_arg_flag )
-		{
-			zval **val;
-			char *key = NULL;
-			uint key_len = 0;
-			ulong index;
-			unsigned int k = 0,
-			int should_rehash = 0;
-			Bucket *p;
-
-			zend_hash_internal_pointer_reset(Z_ARRVAL_P(options));
-			zend_hash_get_current_data(Z_ARRVAL_P(options), (void **)&val);
-
-			zend_hash_get_current_key_ex(Z_ARRVAL_P(options), &key, &key_len, &index, 0, NULL);
-			zend_hash_del_key_or_index(Z_ARRVAL_P(options), key, key_len, index, (key) ? HASH_DEL_KEY : HASH_DEL_INDEX);
-
-			p = Z_ARRVAL_P(options)->pListHead;
-			while (p != NULL) {
-				if (p->nKeyLength == 0) {
-					if (p->h != k) {
-						p->h = k++;
-						should_rehash = 1;
-					} else {
-						k++;
-					}
-				}
-				p = p->pListNext;
-			}
-			Z_ARRVAL_P(options)->nNextFreeElement = k;
-			if (should_rehash) {
-				zend_hash_rehash(Z_ARRVAL_P(options));
-			}
-			zend_hash_internal_pointer_reset(Z_ARRVAL_P(options));
-			
-			arg_count--;
-		}
-	}
-	else if( arg_count == 1 )
-	{
-		zend_hash_index_find( Z_ARRVAL_P(args), 0, (void**)&first );
-		args = *first;
-	}
-
-	if( arg_count > 0 && zend_hash_find( Z_ARRVAL_P(args), "conditions", 10, NULL ) == FAILURE )
-	{
-		zval *pk_args;
-		MAKE_STD_ZVAL( pk_args );
-		array_init( pk_args );
-		zend_hash_next_index_insert(Z_ARRVAL_P(pk_args), args, sizeof(zval *), NULL);
-		zend_hash_next_index_insert(Z_ARRVAL_P(pk_args), options, sizeof(zval *), NULL);
-		RETURN_ZVAL( activerecord_call_function( "static::find_by_pk", pk_args ) );
-	}
-	
-	/*	
-		$options['mapped_names'] = static::$alias_attribute;
-		$list = static::table()->find($options);
-
-		return $single ? (!empty($list) ? $list[0] : null) : $list;
-	*/
-
-}
-
 zend_bool activerecord_model_validate( zval * model )
 {
-	// TODO: Complete
+	// TODO: Complete, depends on Validatons
 }
 
 void activerecord_model_invoke_callback( char * method_name, zend_bool foo )
 {
-	// TODO: Complete
+	// TODO: Complete, depends on Callback
 }
 
 void activerecord_model_flag_dirty( zval * model, char * attr, int attr_len )
@@ -308,6 +217,43 @@ zval * activerecord_model_assign_attribute( zval * model, char * key, int key_le
 	return value;
 }
 
+zval * activerecord_model_magic_set( zval * model, char * name, int name_len, zval * value )
+{
+	zval ** alias, * retval = NULL;
+	
+	if( zend_hash_find( Z_ARRVAL_P(zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC)), name, name_len, (void**)&alias ) == SUCCESS )
+	{
+		efree( name );
+		emalloc( name, sizeof( Z_STRVAL_PP(alias) ) );
+		strncpy( name, Z_STRVAL_PP(alias), Z_STRLEN_PP(alias) );
+		name_len = Z_STRLEN_PP(alias);
+	}
+	else 
+	{
+		char *method_name;
+		emalloc( method_name, sizeof(name)+4 );
+		strcpy( method_name, "set_" );
+		strcat( method_name, name );
+		if( activerecord_model_array_search( zend_read_property( activerecord_model_ce, this_ptr, "setters", 7, 0 TSRMLS_CC ), method_name) )
+		{
+			zend_call_method( &this_ptr, activerecord_model_ce, NULL, method_name, sizeof(method_name), &retval, 0, NULL, NULL TSRMLS_CC );
+			efree( name );
+			RETURN_ZVAL( retval, 0, 0 );
+		}
+	}
+
+	if( zend_hash_find( Z_ARRVAL_P(zend_read_property(activerecord_model_ce, model, "attributes", 10, 0 TSRMLS_CC)), name, name_len ) == SUCCESS )
+	{
+		retval = activerecord_model_assign_attribute( model, name, name_len, value );
+	}
+
+	efree( name );
+	if( retval == NULL );
+		// throw new exception
+
+	RETURN_ZVAL( retval, 0, 0 );
+}
+
 void activerecord_model_assign_attributes( zval * model, zval * attributes, zend_bool guard )
 {
 	zval * accessible 	= zend_read_static_property(activerecord_model_ce, "attr_accessible", 15, 0 TSRMLS_CC);
@@ -339,40 +285,12 @@ void activerecord_model_assign_attributes( zval * model, zval * attributes, zend
 			if( prt_count > 0 && activerecord_model_array_search( protected, key_name ) )
 				continue;
 
-			//$this->$name = $value; ( __set() )
-			//add_property_zval_ex( model, key_name, key_len, *attribute, 0 TSRMLS_CC );
+			activerecord_model_magic_set( model, key_name, key_len, *attribute );
 		}
-		else
+		else if( strcmp(key_name, "ar_rnum__") )
 		{
-			
+			activerecord_assign_attribute( model, key_name, key_len, *attribute );
 		}
-	}
-}
-
-zend_bool activerecord_model_array_search( zval * arr, char * value )
-{
-	zval  **entry;
-	HashPosition pos;
-	zend_bool res = 0;
-	
-	zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(arr), &pos);
-	while( zend_hash_get_current_data_ex(Z_ARRVAL_P(arr), (void **)&entry, &pos) == SUCCESS ) 
-	{
-		if( strcmp(Z_STRVAL_PP(entry), value) == 0 )
-		{
-			res = 1;
-			break;
-		}
-		zend_hash_move_forward_ex(Z_ARRVAL_P(arr), &pos);
-	}
-
-	if( !res )
-	{
-		RETURN_FALSE;
-	}
-	else
-	{
-		RETURN_TRUE;
 	}
 }
 
@@ -458,43 +376,6 @@ void activerecord_model_delete( zval * model )
 {
 	activerecord_model_verify_readonly( model );
 	// TODO: Complete
-}
-
-zval * activerecord_model_magic_set( zval * model, char * name, int name_len, zval * value )
-{
-	zval ** alias, * retval = NULL;
-	
-	if( zend_hash_find( Z_ARRVAL_P(zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC)), name, name_len, (void**)&alias ) == SUCCESS )
-	{
-		efree( name );
-		emalloc( name, sizeof( Z_STRVAL_PP(alias) ) );
-		strncpy( name, Z_STRVAL_PP(alias), Z_STRLEN_PP(alias) );
-		name_len = Z_STRLEN_PP(alias);
-	}
-	else 
-	{
-		char *method_name;
-		emalloc( method_name, sizeof(name)+4 );
-		strcpy( method_name, "set_" );
-		strcat( method_name, name );
-		if( activerecord_model_array_search( zend_read_property( activerecord_model_ce, this_ptr, "setters", 7, 0 TSRMLS_CC ), method_name) )
-		{
-			zend_call_method( &this_ptr, activerecord_model_ce, NULL, method_name, sizeof(method_name), &retval, 0, NULL, NULL TSRMLS_CC );
-			efree( name );
-			RETURN_ZVAL( retval, 0, 0 );
-		}
-	}
-
-	if( zend_hash_find( Z_ARRVAL_P(zend_read_property(activerecord_model_ce, model, "attributes", 10, 0 TSRMLS_CC)), name, name_len ) == SUCCESS )
-	{
-		retval = activerecord_model_assign_attribute( name, name_len, value );
-	}
-
-	efree( name );
-	if( retval == NULL );
-		// throw new exception
-
-	RETURN_ZVAL( retval, 0, 0 );
 }
 
 zval * activerecord_model_magic_get( zval * model, char * name, int name_len )
@@ -880,10 +761,10 @@ PHP_METHOD(ActiveRecordModel, update_attributes)
 	zval * attrs, * retval;
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &attrs) == FAILURE )
 		return;
-	
-	zend_call_method_with_1_params( activerecord_model_ce, this_ptr, NULL, "activerecord_model_assign_attributes", NULL, attrs );
+
+	activerecord_model_assign_attributes( this_ptr, attrs, 1 );
 	zend_call_method_with_0_params( activerecord_model_ce, this_ptr, NULL, "save", &retval );
-	
+
 	RETURN_ZVAL( retval, 1, 0 );
 }
 
@@ -1148,9 +1029,7 @@ PHP_METHOD(ActiveRecordModel, __call)
 
 PHP_METHOD(ActiveRecordModel, all)
 {
-	zval *args, *allstr, *retval_ptr = NULL, *callable;
-	zend_fcall_info fci;
-	zend_fcall_info_cache fci_cache;
+	zval *args, *allstr;
 
 		// init callable args, start with "all"
 	MAKE_STD_ZVAL( args );
@@ -1160,23 +1039,209 @@ PHP_METHOD(ActiveRecordModel, all)
 	zend_hash_next_index_insert( Z_ARRVAL_P(args), &allstr, sizeof(zval*), NULL);
 	activerecord_pack_args( args, 0 );
 
-	RETURN_ZVAL( activerecord_call_function( "static::find", args ), 1 );
+	RETURN_ZVAL( activerecord_call_function( "static::find", args ), 1, 0 );
 }
 
-/* count */
-/* exists */
-/* first */
-/* last */
+PHP_METHOD(ActiveRecordModel, count)
+{
+	zval *args, *options, *countz, *table;
+
+	activerecord_pack_args( args, 1 );
+	options = activerecord_extract_validate_options( args );
+	
+	MAKE_STD_ZVAL( countz );
+	ZVAL_STRINGL( countz, "COUNT(*)", 8 );
+	zend_hash_add( Z_ARRVAL_P(options), "select", 6, countz, sizeof(zval*), NULL );
+	
+	if( zend_hash_num_elements( Z_ARRVAL_P(args) ) > 0 )
+	{
+		if( activerecord_is_hash(args) )
+		{
+			zval **first_arg;
+			zend_hash_index_find( Z_ARRVAL_P(args), 0, (void**)&first_arg );
+			zend_hash_add( Z_ARRVAL_P(options), "conditions", 10, *first_arg, sizeof(zval*), NULL );
+		}
+		else
+		{
+			/*$options['conditions'] = call_user_func_array('static::pk_conditions',$args);*/
+		}
+	}
+	
+	table = activerecord_table_load( EG(scope)->name, EG(scope)->name_length );
+	/*
+	$sql = $table->options_to_sql($options);
+	$values = $sql->get_where_values();
+	return $table->conn->query_and_fetch_one($sql->to_s(),$values);
+	*/
+}
+
+PHP_METHOD(ActiveRecordModel, exists)
+{
+	zval *args, *res;
+	activerecord_pack_args( args, 1 );
+	res = activerecord_call_function( "static::count", args );
+	if( Z_TYPE_P(res) == IS_LONG && Z_LVAL_P(res) > 0 )
+	{
+		RETURN_TRUE;
+	}
+	else
+	{
+		RETURN_FALSE;
+	}
+}
+
+PHP_METHOD(ActiveRecordModel, first)
+{
+	zval *args, *fstr;
+
+		// init callable args, start with "first"
+	MAKE_STD_ZVAL( args );
+	array_init( args );
+	MAKE_STD_ZVAL( fstr );
+	ZVAL_STRING( fstr, "first", 1 );
+	zend_hash_next_index_insert( Z_ARRVAL_P(args), &fstr, sizeof(zval*), NULL);
+	activerecord_pack_args( args, 0 );
+
+	RETURN_ZVAL( activerecord_call_function( "static::find", args ), 1, 0 );
+}
+
+PHP_METHOD(ActiveRecordModel, last)
+{
+	zval *args, *lstr;
+
+		// init callable args, start with "last"
+	MAKE_STD_ZVAL( args );
+	array_init( args );
+	MAKE_STD_ZVAL( lstr );
+	ZVAL_STRING( lstr, "last", 1 );
+	zend_hash_next_index_insert( Z_ARRVAL_P(args), &lstr, sizeof(zval*), NULL);
+	activerecord_pack_args( args, 0 );
+
+	RETURN_ZVAL( activerecord_call_function( "static::find", args ), 1, 0 );
+}
 
 PHP_METHOD(ActiveRecordModel, find)
 {
 	zval *args;
+	int arg_count;
+	zval *options, **first;
+	zend_bool single = 1;
+
 	activerecord_pack_args( args, 1 );
-	
 	if( zend_hash_num_elements( Z_ARRVAL_P(args) ) == 0 )
 		/* throw exception */;
 
-	RETURN_ZVAL(
-		activerecord_model_find( this_ptr, args )
+		// interpret arguments as options
+	options = activerecord_extract_validate_options( args );
+	arg_count = zend_hash_num_elements( Z_ARRVAL_P(args) );
+
+		// allow first argument to be an all/last/first modifier, adapt options accordingly
+	zend_hash_index_find( Z_ARRVAL_P(args), 0, (void**)&first );
+	if( Z_TYPE_P(first) == IS_STRING )
+	{
+		zend_bool first_arg_flag  = 1, fetch_one = 0;
+		if( !strcmp(Z_STRVAL_P(first), "all") )
+		{
+			single = 0;
+		}
+		else if( !strcmp(Z_STRVAL_P(first), "last") )
+		{
+			zval **order;
+			fetch_one = 1;
+			if( zend_hash_find( Z_ARRVAL_P(options), "order", 5, (void**)&order ) == FAILURE )
+			{
+				/*$options['order'] = join(' DESC, ',static::table()->pk) . ' DESC';*/
+			}
+			else
+			{
+				zend_hash_add( Z_ARRVAL_P(options), "order", 5, activerecord_sql_reverse_order( order ), sizeof(zval*), NULL );
+			}
+		}
+		else if( !strcmp(Z_STRVAL_P(first), "first") )
+		{
+			fetch_one = 1;
+		}
+		else
+		{
+			first_arg_flag = 0;
+		}
+		if( fetch_one )
+		{
+			zval *limit, *offset;
+			MAKE_STD_ZVAL( limit );
+			MAKE_STD_ZVAL( offset );
+			ZVAL_LONG( limit, 1 );
+			ZVAL_LONG( offset, 0 );
+			zend_hash_add(
+				Z_ARRVAL_P(options), "limit", 5, limit, sizeof(zval*), NULL
+			);
+			zend_hash_add(
+				Z_ARRVAL_P(options), "offset", 6, offset, sizeof(zval*), NULL
+			);
+		}
+		
+			// if needed, shift the first options-array element
+		if( first_arg_flag )
+		{
+			zval **val;
+			char *key = NULL;
+			uint key_len = 0;
+			ulong index;
+			unsigned int k = 0,
+			int should_rehash = 0;
+			Bucket *p;
+
+			zend_hash_internal_pointer_reset(Z_ARRVAL_P(options));
+			zend_hash_get_current_data(Z_ARRVAL_P(options), (void **)&val);
+
+			zend_hash_get_current_key_ex(Z_ARRVAL_P(options), &key, &key_len, &index, 0, NULL);
+			zend_hash_del_key_or_index(Z_ARRVAL_P(options), key, key_len, index, (key) ? HASH_DEL_KEY : HASH_DEL_INDEX);
+
+			p = Z_ARRVAL_P(options)->pListHead;
+			while (p != NULL) {
+				if (p->nKeyLength == 0) {
+					if (p->h != k) {
+						p->h = k++;
+						should_rehash = 1;
+					} else {
+						k++;
+					}
+				}
+				p = p->pListNext;
+			}
+			Z_ARRVAL_P(options)->nNextFreeElement = k;
+			if (should_rehash) {
+				zend_hash_rehash(Z_ARRVAL_P(options));
+			}
+			zend_hash_internal_pointer_reset(Z_ARRVAL_P(options));
+			
+			arg_count--;
+		}
+	}
+	else if( arg_count == 1 )
+	{
+		zend_hash_index_find( Z_ARRVAL_P(args), 0, (void**)&first );
+		args = *first;
+	}
+
+	if( arg_count > 0 && zend_hash_find( Z_ARRVAL_P(args), "conditions", 10, NULL ) == FAILURE )
+	{
+		zval *pk_args;
+		MAKE_STD_ZVAL( pk_args );
+		array_init( pk_args );
+		zend_hash_next_index_insert(Z_ARRVAL_P(pk_args), args, sizeof(zval *), NULL);
+		zend_hash_next_index_insert(Z_ARRVAL_P(pk_args), options, sizeof(zval *), NULL);
+		RETURN_ZVAL( activerecord_call_function( "static::find_by_pk", pk_args ) );
+	}
+
+	zend_hash_add( 
+		Z_ARRVAL_P(options), "mapped_names", 12, 
+		zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC),
+		sizeof(zval*), NULL 
 	);
+
+	/*	
+		$list = static::table()->find($options);
+		return $single ? (!empty($list) ? $list[0] : null) : $list;
+	*/
 }

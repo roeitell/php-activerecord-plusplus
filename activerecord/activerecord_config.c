@@ -36,8 +36,7 @@ const zend_function_entry activerecord_config_methods[] = {
 
 zval * activerecord_config_instance( TSRMLS_D )
 {
-	zval * instance;
-	instance = zend_read_static_property( activerecord_config_ce, "_instance", 9, 0 TSRMLS_CC );
+	zval * instance = zend_read_static_property( activerecord_config_ce, "_instance", 9, 0 TSRMLS_CC );
 	if( Z_TYPE_P(instance) == IS_NULL )
 	{
 		MAKE_STD_ZVAL( instance );
@@ -85,13 +84,13 @@ PHP_METHOD(ActiveRecordConfig, __construct)
 
 PHP_METHOD(ActiveRecordConfig, instance)
 {
-	zval * res = activerecord_config_instance( TSRMLS_C );
-	RETURN_ZVAL( res, 1, 0 );
+	RETURN_ZVAL( 
+		activerecord_config_instance( TSRMLS_C ), 1, 0 
+	);
 }
 
 PHP_METHOD(ActiveRecordConfig, initialize)
 {
-	zval * result, *** params = emalloc( sizeof(zval**) ), * instance;
 	zend_fcall_info fci = empty_fcall_info;
 	zend_fcall_info_cache fci_cache = empty_fcall_info_cache;
 
@@ -99,15 +98,21 @@ PHP_METHOD(ActiveRecordConfig, initialize)
 		return;
 
 	if (ZEND_FCI_INITIALIZED(fci)) {
-		instance = activerecord_config_instance( TSRMLS_C );
-		params[0] = &instance;
+		zval *instance = activerecord_config_instance( TSRMLS_C );
+		zval ***params = emalloc( sizeof(zval**) );
+		zval *result;
 	
 		fci.retval_ptr_ptr = &result;
+		params[0] = &instance;
 		fci.param_count = 1;
 		fci.params = params;
 		fci.no_separation = 0;
 		zend_call_function(&fci, &fci_cache TSRMLS_CC);
+
+		zend_fcall_info_args_clear(&fci, 1);
 	}
+
+	efree( params );
 }
 
 PHP_METHOD(ActiveRecordConfig, set_connections)
@@ -126,19 +131,22 @@ PHP_METHOD(ActiveRecordConfig, set_connections)
 
 PHP_METHOD(ActiveRecordConfig, get_default_connection_string)
 {
-	zval * conn = activerecord_find_connection_zval( 
-		Z_STRVAL_P(
-			zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "default_connection", 18, 0 TSRMLS_CC )
-		) 
-		TSRMLS_CC 
+	RETURN_ZVAL( 
+		activerecord_find_connection_zval( 
+			Z_STRVAL_P(
+				zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "default_connection", 18, 0 TSRMLS_CC )
+			) TSRMLS_CC 
+		), 
+		1, 0 
 	);
-	RETURN_ZVAL( conn, 1, 0 );
 }
 
 PHP_METHOD(ActiveRecordConfig, get_default_connection)
 {
-	zval * conn = zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "default_connection", 18, 0 TSRMLS_CC );
-	RETURN_ZVAL( conn, 1, 0 );
+	RETURN_ZVAL( 
+		zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "default_connection", 18, 0 TSRMLS_CC ), 
+		1, 0 
+	);
 }
 
 PHP_METHOD(ActiveRecordConfig, set_default_connection)
@@ -165,21 +173,24 @@ PHP_METHOD(ActiveRecordConfig, set_model_directory)
 
 PHP_METHOD(ActiveRecordConfig, get_model_directory)
 {
-	zval * dir = zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "model_directory", 15, 0 TSRMLS_CC );
-	RETURN_ZVAL( dir, 1, 0 );
+	RETURN_ZVAL( 
+		zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "model_directory", 15, 0 TSRMLS_CC ), 
+		1, 0 
+	);
 }
 
 PHP_METHOD(ActiveRecordConfig, get_connection)
 {
 	char * conn_key;
 	int conn_len;
-	zval * conn;
 
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &conn_key, &conn_len) == FAILURE )
 		return;
 
-	conn = zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), conn_key, conn_len, 0 TSRMLS_CC );
-	RETURN_ZVAL( conn, 1, 0 );
+	RETURN_ZVAL( 
+		zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), conn_key, conn_len, 0 TSRMLS_CC ), 
+		1, 0 
+	);
 }
 
 PHP_METHOD(ActiveRecordConfig, set_logging)
@@ -194,8 +205,10 @@ PHP_METHOD(ActiveRecordConfig, set_logging)
 
 PHP_METHOD(ActiveRecordConfig, get_logging)
 {
-	zval * logging = zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "logging", 7, 0 TSRMLS_CC );
-	RETURN_ZVAL( logging, 1, 0 );
+	RETURN_ZVAL( 
+		zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "logging", 7, 0 TSRMLS_CC ), 
+		1, 0 
+	);
 }
 
 PHP_METHOD(ActiveRecordConfig, set_date_format)
@@ -211,14 +224,18 @@ PHP_METHOD(ActiveRecordConfig, set_date_format)
 
 PHP_METHOD(ActiveRecordConfig, get_date_format)
 {
-	zval * df = zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "date_format", 11, 0 TSRMLS_CC );
-	RETURN_ZVAL( df, 1, 0 );
+	RETURN_ZVAL( 
+		zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "date_format", 11, 0 TSRMLS_CC ), 
+		1, 0 
+	);
 }
 
 PHP_METHOD(ActiveRecordConfig, get_logger)
 {
-	zval * logger = zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "logger", 6, 0 TSRMLS_CC );
-	RETURN_ZVAL( logger, 1, 0 );
+	RETURN_ZVAL( 
+		zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "logger", 6, 0 TSRMLS_CC ),
+		1, 0 
+	);
 }
 
 PHP_METHOD(ActiveRecordConfig, set_logger)
@@ -233,6 +250,8 @@ PHP_METHOD(ActiveRecordConfig, set_logger)
 
 PHP_METHOD(ActiveRecordConfig, get_connections)
 {
-	zval * conns = zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "connections", 11, 0 TSRMLS_CC );
-	RETURN_ZVAL( conns, 1, 0 );
+	RETURN_ZVAL( 
+		zend_read_property( activerecord_config_ce, activerecord_config_instance( TSRMLS_C ), "connections", 11, 0 TSRMLS_CC ), 
+		1, 0 
+	);
 }
