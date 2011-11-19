@@ -1,5 +1,5 @@
-1. Complete model+table
-2. Auxilarry: Connection, Relationship, etc.
+1. Complete Table, Callback
+2. Auxilary: Connection, Relationship, Validation, etc.
 3. Namespace classes
 4. Throwing ActiveRecord\Exception
 5. Validate zval refs, efrees

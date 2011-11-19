@@ -124,11 +124,6 @@ zend_bool activerecord_model_validate( zval * model )
 	// TODO: Complete, depends on Validatons
 }
 
-void activerecord_model_invoke_callback( char * method_name, zend_bool foo )
-{
-	// TODO: Complete, depends on Callback
-}
-
 void activerecord_model_flag_dirty( zval * model, char * attr, int attr_len )
 {
 	zval * dirty = zend_read_property(activerecord_model_ce, model, "__dirty", 7, 0 TSRMLS_CC);
@@ -301,11 +296,17 @@ void activerecord_model_verify_readonly( zval * model )
 		//zend_throw_exception(zend_class_entry *exception_ce, char *message, long code TSRMLS_DC) 
 }}
 
+zend_bool activerecord_model_invoke_callback( zval *model, char *callback_name, zend_bool must_exist )
+{
+	zval *table = activerecord_table_load( EG(called_scope)->name, EG(called_scope)->name_length );
+	/*return static::table()->callback->invoke($this,$method_name,$must_exist);*/
+}
+
 void activerecord_model_insert( zval * model, zend_bool validate )
 {
 	zval * table = activerecord_table_load( EG(scope)->name, EG(scope)->name_length );
 	zval * dirty = zend_read_property(activerecord_model_ce, this_ptr, "__dirty", 7, 0 TSRMLS_CC);
-	zval * attributes, ** pk, * tmp1, * tmp2;
+	zval * attributes, ** pk;
 
 	activerecord_model_verify_readonly( model );
 	if( validate )
@@ -330,9 +331,7 @@ void activerecord_model_insert( zval * model, zend_bool validate )
 		//		$this->attributes[$pk[0]] = $table->conn->insert_id($table->sequence);
 	}
 	
-	ZVAL_STRING( tmp1, "invoke_callback" );
-	ZVAL_BOOL( tmp2, 0 );
-	zend_call_method_with_2_params( this_ptr, activerecord_model_ce, NULL, tmp1, tmp2 );
+	activerecord_model_invoke_callback( this_ptr, "after_create", 0 );
 	zend_update_property_bool( activerecord_model_ce, this_ptr, "__new_record", 12, 0 TSRMLS_CC );
 	RETURN_TRUE;
 }
@@ -341,7 +340,7 @@ void activerecord_model_update( zval * model, zend_bool validate )
 {
 	zval * table = activerecord_table_load( EG(scope)->name, EG(scope)->name_length );
 	zval * dirty = zend_read_property(activerecord_model_ce, this_ptr, "__dirty", 7, 0 TSRMLS_CC);
-	zval * attributes, ** pk, * tmp1, * tmp2;
+	zval * attributes, ** pk;
 
 	activerecord_model_verify_readonly( model );
 	if( validate && !activerecord_model_validate( model ) )
@@ -349,33 +348,9 @@ void activerecord_model_update( zval * model, zend_bool validate )
 		RETURN_FALSE;
 	}
 
-	if( Z_TYPE_P(dirty) == IS_ARRAY && zend_hash_num_elements(Z_ARRVAL_P(dirty)) > 0 )
-	{
-	}
-		dirty : zend_read_property( activerecord_model_ce, this_ptr, "attributes", 10, 0 TSRMLS_CC );
-	
-	zend_hash_find( Z_ARRVAL_P(table), "pk", 2, (void**)&pk );
-	
-	zend_call_method_with_1_params( table, Z_OBJ_CE(table), NULL, "insert", NULL, attributes );
-	
-	if( zend_hash_num_elements(Z_ARRVAL_P(pk)) == 1 )
-	{
-		//	$column = $table->get_column_by_inflected_name($pk[0]);
-		//	if ($column->auto_increment || $use_sequence)
-		//		$this->attributes[$pk[0]] = $table->conn->insert_id($table->sequence);
-	}
-	
-	ZVAL_STRING( tmp1, "invoke_callback" );
-	ZVAL_BOOL( tmp2, 0 );
-	zend_call_method_with_2_params( this_ptr, activerecord_model_ce, NULL, tmp1, tmp2 );
-	zend_update_property_bool( activerecord_model_ce, this_ptr, "__new_record", 12, 0 TSRMLS_CC );
-	RETURN_TRUE;
-}
+	/* complete */
 
-void activerecord_model_delete( zval * model )
-{
-	activerecord_model_verify_readonly( model );
-	// TODO: Complete
+	RETURN_TRUE;
 }
 
 zval * activerecord_model_magic_get( zval * model, char * name, int name_len )
@@ -412,6 +387,15 @@ zval * activerecord_model_values_for( zval * model, zval * attribute_names )
 	}
 
 	return values_for;
+}
+
+zval * activerecord_model_values_for_pk()
+{
+	return activerecord_model_values_for(zend_hash_find(
+		activerecord_table_ce, 
+		activerecord_table_load( EG(scope)->name, EG(scope)->name_length ), 
+		"pk", 2, 0 TSRMLS_CC 
+	));
 }
 
 zend_bool activerecord_model_isset( zval * model, char * name, int name_len )
@@ -696,19 +680,29 @@ PHP_METHOD(ActiveRecordModel, save)
 
 PHP_METHOD(ActiveRecordModel, delete)
 {
+	zval *pk, *table;
 	 // TODO: Complete...
-	activerecord_model_delete( this_ptr );
+	activerecord_model_verify_readonly( model );
+	pk = activerecord_model_values_for_pk();
+	if( Z_TYPE_P(pk) == IS_ARRAY && zend_hash_num_elements(Z_ARRVAL_P(pk)) == 0 )
+		/* throw exception */;
+
+	if( activerecord_model_invoke_callback( this_ptr, "before_destroy", 0 ) )
+	{
+		table = activerecord_table_load( EG(scope)->name, EG(scope)->name_length );
+		/*static::table()->delete($pk);*/
+		activerecord_model_invoke_callback( this_ptr, "after_destroy", 0 );
+		RETURN_TRUE;
+	}
+	else
+	{
+		RETURN_FALSE;
+	}
 }
 
 PHP_METHOD(ActiveRecordModel, values_for_pk)
 {
-	RETURN_ZVAL(
-		activerecord_model_values_for(zend_hash_find(
-			activerecord_table_ce, 
-			activerecord_table_load( EG(scope)->name, EG(scope)->name_length ), 
-			"pk", 2, 0 TSRMLS_CC 
-		))
-	);
+	RETURN_ZVAL( activerecord_model_values_for_pk(), 1, 0 );
 }
 
 PHP_METHOD(ActiveRecordModel, values_for)
@@ -1270,4 +1264,52 @@ PHP_METHOD(ActiveRecordModel, find_by_pk)
 		zend_hash_index_find( Z_ARRVAL_P(list), 0, (void**)&first );
 		RETURN_ZVAL( *first, 1, 0 );
 	}
+}
+
+PHP_METHOD(ActiveRecordModel, find_by_sql)
+{
+	zval *sql, *values, 
+		 *table = activerecord_table_load( EG(called_scope)->name, EG(called_scope)->name_length );
+
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z|z", &sql, &values) == FAILURE )
+		return;
+	
+	if( !values )
+	{
+		MAKE_STD_ZVAL( values );
+		ZVAL_NULL( values );
+	}
+	
+	/* return static::table()->find_by_sql($sql, $values, true); */
+}
+
+PHP_METHOD(ActiveRecordModel, pk_conditions)
+{
+	zval *args, *retval, *pk,
+		 *table = activerecord_table_load( EG(called_scope)->name, EG(called_scope)->name_length );
+
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &args) == FAILURE )
+		return;
+
+	/* $pk = $table->pk[0] */
+	MAKE_STD_ZVAL( retval );
+	array_init_size( retval, 1 );
+	zend_hash_add( Z_ARRVAL_P(retval), Z_STRVAL_P(pk), Z_STRLEN_P(pk), args, sizeof(zval*), NULL );
+	
+	RETURN_ZVAL( retval, 1, 0 );
+}
+
+PHP_METHOD(ActiveRecordModel, to_json)
+{
+	// Complete
+}
+
+PHP_METHOD(ActiveRecordModel, to_xml)
+{
+	// Complete
+}
+
+PHP_METHOD(ActiveRecordModel, transaction)
+{
+	// Complete
 }
