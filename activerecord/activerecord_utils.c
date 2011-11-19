@@ -59,13 +59,14 @@ PHP_METHOD(ActiveRecordUtils, is_blank)
 
 PHP_METHOD(ActiveRecordUtils, extract_options)
 {
-	zval * pVal, ** retVal;
+	zval * pVal;
 
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "z", &pVal) == FAILURE )
 		return;
 	
 	if( pVal->type == IS_ARRAY )
 	{
+		zval **retVal;
 		HashTable *array = pVal->value.ht;
 		zend_hash_internal_pointer_end(array);
 		zend_hash_get_current_data( array, (void**)&retVal );
@@ -89,8 +90,8 @@ PHP_METHOD(ActiveRecordUtils, is_odd)
 
 PHP_METHOD(ActiveRecordUtils, singularize)
 {
-	char * str, * index, * res, * lower;
-	int str_len, i, rep_len, rep_count, dist;
+	char * str, * lower;
+	int str_len, i;
 	zval * singular_replacement;
 	
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE )
@@ -115,15 +116,16 @@ PHP_METHOD(ActiveRecordUtils, singularize)
 		// irregular form?
 	for( i = 0; i < 8; i++ )
 	{
-		index = strstr( lower, activerecord_irregular_plurals[i] );
+		char *index = strstr( lower, activerecord_irregular_plurals[i] );
 		if( index != NULL )
 		{
-			dist = index - lower;
+			char *res;
+			int dist = index - lower;
 			res = (char*) ecalloc( strlen(str) + strlen(activerecord_irregulars[i]) - strlen(activerecord_irregular_plurals[i]) + 1, sizeof(char) );
 			strncat( res, str, dist );
 			strcat( res, activerecord_irregulars[i] );
 			strcat( res, str + dist + strlen(activerecord_irregular_plurals[i]) );
-			RETURN_STRING( res, 1 );
+			RETURN_STRING( res, 1 );	/* RETVAL_STRING(...) */
 			efree( lower );
 			efree( res );
 			return;
@@ -136,6 +138,7 @@ PHP_METHOD(ActiveRecordUtils, singularize)
     Z_TYPE_P(singular_replacement) = IS_STRING;
 	for( i = 0; i < 28; i++ )
 	{
+		int rep_count, rep_len;
 		Z_STRVAL_P(singular_replacement) = ecalloc( strlen(activerecord_singular_replacements[i]), sizeof(char) );
 		strcpy( Z_STRVAL_P(singular_replacement), activerecord_singular_replacements[i] );
 		Z_STRLEN_P(singular_replacement) = strlen(activerecord_singular_replacements[i]);

@@ -49,14 +49,13 @@ activerecord_sql * activerecord_sql_new()
 
 char * activerecord_sql_quote_name( char * val )
 {
-	char * quoted;
 	int val_len = strlen(val);
 
 	if( val[0] != '`' || val[val_len-1] != '`' )
 	{
-		quoted = emalloc( val_len+2 );
+		char *quoted = emalloc( val_len+2 );
 		quoted[0] = '`';
-		strcpy( quoted+1, val );
+		strncpy( quoted+1, val, val_len );
 		quoted[val_len+1] = '`';
 		return quoted;
 	}
@@ -66,7 +65,7 @@ char * activerecord_sql_quote_name( char * val )
 char * activerecord_sql_build_update( activerecord_sql * sql )
 {
 	int i, param_len = 0;
-	char* query, ** param;
+	char *query, ** param;
 	
 	param = emalloc( sql->data_len * sizeof(char*) );
 	
@@ -268,9 +267,9 @@ void activerecord_sql_create_where( activerecord_sql * sql, char ** keys, char *
 zval * activerecord_create_conditions_from_underscored_string( char * str, int str_len, zval * values, zval * map )
 {
 	int i, valcount, strsize, curstrsize;
-	char * conditions, * tmp, * attribute;
-	zend_bool and_condition, use_map, unfinished = 1;
-	zval ** alias, ** value, * retval, * condsval;
+	char * conditions;
+	zend_bool use_map, unfinished = 1;
+	zval * retval, * condsval;
 
 	if( !name_len || Z_TYPE_P(values) != IS_ARRAY )
 		return NULL;
@@ -285,6 +284,10 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 
 	for( i = 0; strstr( str, "_and_" ) || strstr( str, "_or_" ) || unfinished; i++ )
 	{
+		char *attribute, *tmp;
+		zend_bool and_condition;
+		zval **alias;
+
 		if( tmp = strstr(str,"_and_") )
 			and_condition = 1;
 		else
@@ -324,6 +327,8 @@ zval * activerecord_create_conditions_from_underscored_string( char * str, int s
 
 			if( i < valcount )
 			{
+				zval **value;
+
 				zend_hash_index_find( Z_ARRVAL_P(values), i, (void**)&value );
 				if( Z_TYPE_PP(value) != IS_NULL )
 				{
@@ -358,7 +363,6 @@ zval * activerecord_create_hash_from_underscored_string( char * str, int str_len
 {
 	zval * hash;
 	int i;
-	char * attribute, * tmp, ** alias, ** value;
 	zend_bool use_map, unfinished = 1;
 
 	MAKE_STD_ZVAL( hash );
@@ -367,6 +371,8 @@ zval * activerecord_create_hash_from_underscored_string( char * str, int str_len
 
 	for( i = 0; strstr( str, "_and_" ) || strstr( str, "_or_" ) || unfinished; i++ )
 	{
+		char **alias, *tmp, *attribute, **value;
+
 		if( tmp = strstr(str,"_and_") )
 			and_condition = 1;
 		else

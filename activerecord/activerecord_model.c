@@ -27,7 +27,7 @@ zend_bool activerecord_is_options_hash( zval * arr )
 {
 	HashPosition pos;
 	char * key;
-	int i, key_len, res;
+	int key_len, res;
 
 	if( !activerecord_is_hash(arr) )
 		return 0;
@@ -38,6 +38,8 @@ zend_bool activerecord_is_options_hash( zval * arr )
 		zend_hash_move_forward_ex(Z_ARRVAL_PP(arr), &pos)
 	)
 	{
+		int i;
+
 		if( res != HASH_KEY_IS_STRING )
 			/* throw exception */;
 
@@ -56,15 +58,17 @@ zend_bool activerecord_is_options_hash( zval * arr )
 
 zval * activerecord_extract_validate_options( zval * arr )
 {
-	zval * retval, ** last;
-	int key_len, j;
-	char * key;
+	zval * retval;
 
 	MAKE_STD_ZVAL( retval );
 	array_init( retval );
 
 	if( Z_TYPE_P(arr) == IS_ARRAY && zend_hash_num_elements( Z_ARRVAL_P(arr) ) > 0 )
 	{
+		zval **last;
+		char *key;
+		int key_len, j;
+
 		zend_hash_internal_pointer_end(Z_ARRVAL_P(arr));
 		zend_hash_get_current_data(Z_ARRVAL_P(arr), (void **)&last);
 
@@ -91,9 +95,8 @@ zval * activerecord_extract_validate_options( zval * arr )
 zval * activerecord_model_find( zval * model, zval * args )
 {
 	int arg_count;
-	void **p;
-	zval *options, **first, **order;
-	zend_bool single = 1, first_arg_flag = 1, fetch_one = 0;
+	zval *options, **first;
+	zend_bool single = 1;
 
 		// interpret arguments as options
 	options = activerecord_extract_validate_options( args );
@@ -103,12 +106,14 @@ zval * activerecord_model_find( zval * model, zval * args )
 	zend_hash_index_find( args, 0, (void**)&first );
 	if( Z_TYPE_P(first) == IS_STRING )
 	{
+		zend_bool first_arg_flag  = 1, fetch_one = 0;
 		if( !strcmp(Z_STRVAL_P(first), "all") )
 		{
 			single = 0;
 		}
 		else if( !strcmp(Z_STRVAL_P(first), "last") )
 		{
+			zval **order;
 			fetch_one = 1;
 			if( zend_hash_find( Z_ARRVAL_P(options), "order", 5, (void**)&order ) == FAILURE )
 			{
@@ -458,7 +463,6 @@ void activerecord_model_delete( zval * model )
 zval * activerecord_model_magic_set( zval * model, char * name, int name_len, zval * value )
 {
 	zval ** alias, * retval = NULL;
-	char * method_name;
 	
 	if( zend_hash_find( Z_ARRVAL_P(zend_read_static_property(activerecord_model_ce, "alias_attribute", 15, 0 TSRMLS_CC)), name, name_len, (void**)&alias ) == SUCCESS )
 	{
@@ -469,6 +473,7 @@ zval * activerecord_model_magic_set( zval * model, char * name, int name_len, zv
 	}
 	else 
 	{
+		char *method_name;
 		emalloc( method_name, sizeof(name)+4 );
 		strcpy( method_name, "set_" );
 		strcat( method_name, name );
@@ -512,13 +517,9 @@ zval * activerecord_model_values_for( zval * model, zval * attribute_names )
 {
 	zval * values_for, ** name;
 	HashPosition pos;
-	
+
 	MAKE_STD_ZVAL( values_for );
 	array_init( values_for );
-	
-	
-	int index, key_len;
-	char * key_name;
 	
 	for( zend_hash_internal_pointer_reset_ex(Z_ARRVAL_P(attribute_names), &pos); 
 		 zend_hash_get_current_data_ex(Z_ARRVAL_P(attribute_names), (void **) &name, &pos) == SUCCESS; 
@@ -650,7 +651,6 @@ PHP_METHOD(ActiveRecordModel, dirty_attributes)
 {
 	zval * dirty = zend_read_property(activerecord_model_ce, this_ptr, "__dirty", 7, 0 TSRMLS_CC);
 	zval * attributes = zend_read_property(activerecord_model_ce, this_ptr, "attributes", 10, 0 TSRMLS_CC);
-	zval **data;
 	Bucket * p;
 
 	if( Z_TYPE_P(dirty) == IS_NULL )
@@ -661,6 +661,7 @@ PHP_METHOD(ActiveRecordModel, dirty_attributes)
 	array_init(return_value);
 	for( p = Z_ARRVAL_PP(dirty)->pListHead; p != NULL; p = p->pListNext )
 	{
+		zval **data;
 		if( p->nKeyLength > 0 )
 		{
 			if( zend_hash_quick_find(Z_ARRVAL_PP(attributes), p->arKey, p->nKeyLength, p->h, (void**)&data ) != FAILURE )
@@ -715,7 +716,7 @@ PHP_METHOD(ActiveRecordModel, get_validation_rules)
 
 PHP_METHOD(ActiveRecordModel, get_values_for)
 {
-	zval * keys, ** name, ** value;
+	zval * keys, ** name;
 	zval * attributes = zend_read_property(activerecord_model_ce, model, "attributes", 10, 0 TSRMLS_CC);
 	HashPosition pos;
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "a", &keys) == FAILURE )
@@ -726,6 +727,7 @@ PHP_METHOD(ActiveRecordModel, get_values_for)
 		 zend_hash_get_current_data_ex(Z_ARRVAL_P(keys), (void **) &name, &pos) == SUCCESS; 
 		 zend_hash_move_forward_ex(Z_ARRVAL_P(keys), &pos) )
 	{
+		zval **value;
 		if( zend_hash_find(Z_ARRVAL_P(attributes), name, strlen(name)+1, (void**)&value) == SUCCESS )
 			zend_hash_update( Z_ARRVAL_P(return_value), name, strlen(name)+1, *value, sizeof(zval*), NULL );
 	}
@@ -940,7 +942,7 @@ PHP_METHOD(ActiveRecordModel, set_relationship_from_eager_load)
 
 PHP_METHOD(ActiveRecordModel, reload)
 {
-	zval * empty_arr, * null_zval, * attrs, * pks, ** pk, * pk_values, ** pk_value, * record;
+	zval * empty_arr, * null_zval, * pks, ** pk, * pk_values, * record;
 	zval * attributes = zend_read_property(activerecord_model_ce, model, "attributes", 10, 0 TSRMLS_CC);
 	HashPosition pos;
 	
@@ -956,6 +958,7 @@ PHP_METHOD(ActiveRecordModel, reload)
 		 zend_hash_get_current_data_ex(Z_ARRVAL_P(pks), (void **) &pk, &pos) == SUCCESS; 
 		 zend_hash_move_forward_ex(Z_ARRVAL_P(pks), &pos) )
 	{
+		zval **pk_value;
 		if( zend_hash_find(Z_ARRVAL_P(attributes), pk, sizeof(pk), (void**)&pk_value) == SUCCESS )
 		{
 			zval_add_ref( pk_value );
@@ -1003,8 +1006,8 @@ PHP_METHOD(ActiveRecordModel, reset_dirty)
 
 PHP_METHOD(ActiveRecordModel, __callStatic)
 {
-	zval * args, * options, * ret, * tmp;
-	char * method_name, * new_method_name, * attributes;
+	zval * args, * options, * ret;
+	char * method_name, * attributes;
 	int method_name_len;
 	zend_bool create = 0;
 
@@ -1014,14 +1017,16 @@ PHP_METHOD(ActiveRecordModel, __callStatic)
 	options = activerecord_extract_validate_options( args );
 	if( !strncmp( method_name, "find_or_create_by", 17 ) )
 	{
+		char *method_name_tmp;
+
 		create = 1;
 		method_name_len -= 17;
 		
-		new_method_name = (char*)emalloc( method_name_len );
-		strncpy( new_method_name, method_name+17, method_name_len );
+		method_name_tmp = (char*)emalloc( method_name_len );
+		strncpy( method_name_tmp, method_name+17, method_name_len );
 
 		efree( method_name );
-		method_name = new_method_name;
+		method_name = method_name_tmp;
 
 		if( strstr( method_name, "_or" ) != NULL )
 			/* throw exception */;
@@ -1029,6 +1034,7 @@ PHP_METHOD(ActiveRecordModel, __callStatic)
 	
 	if( strstr( method_name, "find_by" ) == method_name )
 	{
+		zval *tmp;
 		attributes = (char*)emalloc( method_name_len - 8 );
 		strncpy( method_name+8, method_name_len-8 );
 		add_assoc_zval( 
@@ -1042,7 +1048,7 @@ PHP_METHOD(ActiveRecordModel, __callStatic)
 		MAKE_STD_ZVAL( tmp );
 		ZVAL_STRING( tmp, "first", 1 );
 		zend_call_method_with_2_params( NULL, activerecord_model_ce, NULL, "find", ret, tmp, options );
-		if( Z_TYPE_P(ret) == IS_NULL )
+		if( Z_TYPE_P(ret) == IS_NULL && create )
 		{
 			ZVAL_STRING( 
 				tmp, 
@@ -1058,6 +1064,7 @@ PHP_METHOD(ActiveRecordModel, __callStatic)
 	}
 	else if( strstr( method_name, "find_all_by" ) == method_name )
 	{
+		zval *tmp;
 		attributes = (char*)emalloc( method_name_len - 12 );
 		strncpy( method_name+12, method_name_len-12 );
 		add_assoc_zval( 

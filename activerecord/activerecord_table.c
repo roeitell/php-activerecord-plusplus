@@ -67,7 +67,7 @@ PHP_METHOD(ActiveRecordTable, __construct)
 {
 	char * name;
 	int name_len;
-	zval * conn, * table_name, * pk, * tmp;
+	zval * conn, * table_name, * pk;
 	zend_class_entry **ce;
 
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &name, &name_len) == FAILURE )
@@ -92,6 +92,7 @@ PHP_METHOD(ActiveRecordTable, __construct)
 	pk = zend_read_static_property( *ce, "pk", 2, 0 TSRMLS_CC );
 	if( Z_TYPE_P(pk) == IS_STRING )
 	{
+		zval *tmp;
 		ZVAL_STRINGL( tmp, Z_STRVAL_P(pk), Z_STRLEN_P(pk), 1 );
 		array_init( pk );
 		add_next_index_string( pk, tmp, 1 );
