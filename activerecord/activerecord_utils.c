@@ -216,6 +216,58 @@ char * activerecord_pluralize( char * str, int str_len TSRMLS_DC )
 	return str;
 }
 
+void activerecord_variablize( char * str, int str_len )
+{
+	int i;
+	
+	str = php_trim( str, str_len, NULL, 0, NULL, 3 TSRMLS_CC);
+	str_len = strlen( str );
+	for( i = 0; i < str_len; i++ )
+		str[i] = ( str[i] == '-' || str[i] == ' ' )? '_' : tolower( str[i] );
+}
+
+char * activerecord_denamespace( char *class_name )
+{
+	if( strstr(class_name, '\\') )
+	{
+		char *i, *j;
+		i = class_name;
+		while( j = strstr(i, '\\') )
+			i = j;
+		return i;
+	}
+	return class_name;
+}
+
+PHP_FUNCTION(denamespace)
+{
+	char * str;
+	int str_len;
+
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE )
+		return;
+	
+	RETURN_STRING( activerecord_denamspace(str), 1 );
+}
+
+PHP_FUNCTION(has_namespace)
+{
+	char * str;
+	int str_len;
+
+	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &str, &str_len) == FAILURE )
+		return;
+	
+	if( strstr(str, '\\') )
+	{
+		RETURN_TRUE;
+	}
+	else
+	{
+		RETURN_FALSE;
+	}
+}
+
 PHP_METHOD(ActiveRecordUtils, pluralize)
 {
 	char * str;

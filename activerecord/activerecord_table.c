@@ -85,7 +85,7 @@ char * activerecord_table_create_joins( zval *table, zval *joins )
 	return ret;
 }
 
-activerecord_sql options_to_sql( zval *table, zval *options )
+activerecord_sql * options_to_sql( zval *table, zval *options )
 {
 	activerecord_sql *res = activerecord_sql_new();
 	zval **tmp;
