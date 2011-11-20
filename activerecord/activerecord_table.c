@@ -10,6 +10,7 @@
 /*
  * TODO:
  *	1. add activerecord_table_get_relationship( table, name, name_len ), null if not found
+ * 	2. add activerecord_table_fully_qualified_name( table )
  */
 const zend_function_entry activerecord_table_methods[] = {
 	PHP_ME(ActiveRecordTable, __construct, NULL, ZEND_ACC_PUBLIC)
