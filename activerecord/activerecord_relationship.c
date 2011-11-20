@@ -23,6 +23,7 @@ typedef struct {
 	char * attribute_name;
 	char * class_name;	// fci_info?
 	int class_name_len;
+	int type;
 	zval * foreign_key;
 	zval * primary_key;
 	zval * options;
@@ -57,7 +58,7 @@ activerecord_relationship * activerecord_relationship_new( zval *options, int ty
 	rel->attribute_name = Z_STRVAL_PP(tmp);
 	activerecord_variablize( rel->attribute_name );
 
-	rel->poly = type == AR_REL_HASMANY || type == AR_REL_HASANDBELONGSTOMANY? 0 : 1;
+	rel->poly = (type == AR_REL_HASMANY || type == AR_REL_HASANDBELONGSTOMANY)? 0 : 1;
 	rel->options = activerecord_merge_association_options( rel, options );
 
 	if( zend_hash_find( Z_ARRVAL_P(options), "conditions", 10, (void**)&tmp ) == SUCCESS )
