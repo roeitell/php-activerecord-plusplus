@@ -1005,21 +1005,21 @@ PHP_METHOD(ActiveRecordModel, __call)
 	if( Z_TYPE_P(args) == IS_ARRAY && zend_hash_num_elements(Z_ARRVAL_P(args)) > 0 )
 		zend_hash_index_find( Z_ARRVAL_P(args), 0, (void**)&arg );
 	else
+	{
 		MAKE_STD_ZVAL( *arg );
+		ZVAL_NULL( *arg );
+	}
 
 	association = activerecord_table_get_relationship(
 		activerecord_table_load( EG(scope)->name, EG(scope)->name_length ),
 		method_name, method_name_len
 	);
-	if( Z_TYPE_P(association) == IS_OBJECT )
+	if( association )
 	{
 		activerecord_model_magic_get( this_ptr, method_name, method_name_len );
-		/*
 		RETURN_ZVAL( build?
-			activerecord_association_build( association this_ptr, *arg ) :
-			activerecord_association_create( association, this_ptr, *arg )
-		);
-		*/
+			activerecord_build_association( association, *arg  ) :
+			activerecord_create_association( association, this_ptr, *arg );
 	}
 }
 

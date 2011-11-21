@@ -12,6 +12,13 @@
 #define AR_REL_BELONGSTO 3
 #define AR_REL_HASANDBELONGSTOMANY 4
 
+/**
+ * Relationships are helpers of the Table class. They can be constructed ad-hoc from the Model's
+ *	static properties, but are kept cached during a request lifetime. In the PHP lib they are kept
+ *	both in a Table cache and in a Model cache; Here there is no need for this, and they can be kept
+ *	solely in a Table's cache.
+ *
+ */
 static const char **valid_association_options = { 
 	"class_name", "class", "foreign_key", "conditions", "select", "readonly" 
 };
@@ -21,7 +28,8 @@ static const char **has_many_valid_association_options = {
 };
 typedef struct {
 	char * attribute_name;
-	char * class_name;	// fci_info?
+	int attribute_name_len;
+	char * class_name;
 	int class_name_len;
 	int type;
 	zval * foreign_key;
@@ -56,7 +64,8 @@ activerecord_relationship * activerecord_relationship_new( zval *options, int ty
 
 	zend_hash_index_find( Z_ARRVAL_P(options), 0, (void**)&tmp );
 	rel->attribute_name = Z_STRVAL_PP(tmp);
-	activerecord_variablize( rel->attribute_name );
+	rel->attribute_name_len = Z_STRLEN_PP(tmp);
+	activerecord_variablize( rel->attribute_name );	// doesn't change length
 
 	rel->poly_relationship = (type == AR_REL_HASMANY || type == AR_REL_HASANDBELONGSTOMANY? 1 : 0);
 	rel->options = activerecord_merge_association_options( rel, options );
@@ -172,4 +181,35 @@ char * construct_inner_join_sql( activerecord_relationship *rel, zval *table, ze
 	strcat( res, ")" );
 
 	return res;
+}
+
+zval * activerecord_build_association( activerecord_relationship *rel, zval *attributes )
+{
+	zval *new_model;
+	zend_class_entry *ce = zend_fetch_class( rel->class_name, rel->class_name_len, 1 TSRMLS_CC );
+	MAKE_STD_ZVAL( new_model );
+	object_init_ex( new_model, ce );
+	zend_call_method_with_1_params( model, ce, NULL, "__construct", NULL, attributes );
+}
+
+zval * activerecord_create_association( activerecord_relationship *rel, zval *model, zval *attributes )
+{
+	zval *new_model, *attribute;
+	zend_class_entry *ce = zend_fetch_class( rel->class_name, rel->class_name_len, 1 TSRMLS_CC );
+
+	zend_call_method_with_1_params( model, ce, NULL, "create", &new_model, attributes );
+	attribute = activerecord_model_magic_get( model, rel->attribute_name, rel->attribute_name_len );
+	if( rel->poly_relationship )
+	{
+		if( Z_TYPE_P(attribute) != IS_ARRAY )
+			array_init_size( attribute, 1 );
+		add_index_zval( attribute, 0, new_model );
+	}
+	else
+	{
+		attribute->ref_count--;
+		attribute = new_model; // rather raw approach for $attribute = $new_model, where $attribute is a reference
+	}
+
+	return new_model;
 }
