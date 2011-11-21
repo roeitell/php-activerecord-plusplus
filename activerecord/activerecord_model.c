@@ -138,7 +138,7 @@ void activerecord_model_flag_dirty( zval * model, char * attr, int attr_len )
 	);
 }
 
-zval * activerecord_model_read_attribute( zval * model, char * name, int name_len )
+zval ** activerecord_model_read_attribute( zval * model, char * name, int name_len )
 {
 	zval ** alias, ** retval = NULL, ** tmp;
 	zval * table = activerecord_table_load( EG(scope)->name, EG(scope)->name_length );
@@ -166,7 +166,7 @@ zval * activerecord_model_read_attribute( zval * model, char * name, int name_le
 		zend_hash_add( Z_ARRVAL_P(zend_read_property(activerecord_model_ce, model, "__relationships", 15, 0 TSRMLS_CC)),
 			name, name_len, *tmp, sizeof(zval*), NULL
 		);
-		retval = *tmp;
+		retval = tmp;
 	}
 	
 		// pk?
@@ -183,7 +183,7 @@ zval * activerecord_model_read_attribute( zval * model, char * name, int name_le
 		// throw something
 	
 	efree( name );
-	RETURN_ZVAL( retval, 0, 0 );
+	return retval;
 }
 
 zval * activerecord_model_assign_attribute( zval * model, char * key, int key_len, zval * value )
@@ -353,10 +353,10 @@ void activerecord_model_update( zval * model, zend_bool validate )
 	RETURN_TRUE;
 }
 
-zval * activerecord_model_magic_get( zval * model, char * name, int name_len )
+zval ** activerecord_model_magic_get( zval * model, char * name, int name_len )
 {
 	char * method_name = emalloc( 4 + sizeof(name) );
-	zval * retval;
+	zval ** retval;
 
 	strcpy( method_name, "get_" );
 	strcat( method_name, name );
@@ -382,7 +382,7 @@ zval * activerecord_model_values_for( zval * model, zval * attribute_names )
 		 zend_hash_move_forward_ex(Z_ARRVAL_P(attribute_names), &pos) )
 	{
 		zend_hash_add(
-			Z_ARRVAL_P(values_for), name, sizeof(name), activerecord_model_magic_get( model, name, name_len ), sizeof(zval*), NULL
+			Z_ARRVAL_P(values_for), name, sizeof(name), *(activerecord_model_magic_get( model, name, name_len )), sizeof(zval*), NULL
 		);
 	}
 
@@ -443,7 +443,7 @@ PHP_METHOD(ActiveRecordModel, __get)
 	if( zend_parse_parameters(ZEND_NUM_ARGS() TSRMLS_CC, "s", &name &name_len) == FAILURE )
 		return;
 		
-	RETURN_ZVAL( activerecord_model_magic_get( this_ptr, name, name_len ), 0, 0 );
+	RETURN_ZVAL( *(activerecord_model_magic_get( this_ptr, name, name_len )), 0, 0 );
 }
 
 PHP_METHOD(ActiveRecordModel, __isset)

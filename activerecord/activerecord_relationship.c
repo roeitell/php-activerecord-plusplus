@@ -194,21 +194,21 @@ zval * activerecord_build_association( activerecord_relationship *rel, zval *att
 
 zval * activerecord_create_association( activerecord_relationship *rel, zval *model, zval *attributes )
 {
-	zval *new_model, *attribute;
+	zval *new_model, **attribute;
 	zend_class_entry *ce = zend_fetch_class( rel->class_name, rel->class_name_len, 1 TSRMLS_CC );
 
 	zend_call_method_with_1_params( model, ce, NULL, "create", &new_model, attributes );
 	attribute = activerecord_model_magic_get( model, rel->attribute_name, rel->attribute_name_len );
 	if( rel->poly_relationship )
 	{
-		if( Z_TYPE_P(attribute) != IS_ARRAY )
-			array_init_size( attribute, 1 );
-		add_index_zval( attribute, 0, new_model );
+		if( Z_TYPE_PP(attribute) != IS_ARRAY )
+			array_init_size( *attribute, 1 );
+		add_index_zval( *attribute, 0, new_model );
 	}
 	else
 	{
-		attribute->refcount--;
-		attribute = new_model; // rather raw approach for $attribute = $new_model, where $attribute is a reference
+		(*attribute)->refcount--;
+		attribute = &new_model;
 	}
 
 	return new_model;
