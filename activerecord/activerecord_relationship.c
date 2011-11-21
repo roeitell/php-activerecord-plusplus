@@ -207,7 +207,7 @@ zval * activerecord_create_association( activerecord_relationship *rel, zval *mo
 	}
 	else
 	{
-		attribute->ref_count--;
+		attribute->refcount--;
 		attribute = new_model; // rather raw approach for $attribute = $new_model, where $attribute is a reference
 	}
 
